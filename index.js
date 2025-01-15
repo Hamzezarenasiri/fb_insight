@@ -2,8 +2,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import axios from 'axios';
 import { MongoClient, ObjectId } from 'mongodb';
+import bodyParser from 'body-parser';
 dotenv.config();
-// MongoDB connection
 const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v21.0";
 const client = new MongoClient(uri);
@@ -461,6 +461,24 @@ const schema = [
 
 const app = express();
 app.use(express.json());
+// Static authentication token
+const STATIC_TOKEN = 'your-static-token'; // Replace with a secure, randomly generated token
+
+// Authentication middleware
+const authenticate = (req, res, next) => {
+    const authToken = req.headers['authorization'];
+    if (!authToken || authToken !== STATIC_TOKEN) {
+        return res.status(401).send({ success: false, message: 'Unauthorized' });
+    }
+    next();
+};
+
+// Background task wrapper
+const runInBackground = (task, params) => {
+    setTimeout(() => {
+        task(params).catch(err => console.error('Background task failed:', err));
+    }, 0); // Run immediately but asynchronously
+};
 
 async function connectToCollection(collectionName) {
     try {
@@ -1315,21 +1333,20 @@ async function mainTask(params) {
         throw error;
     }
 }
-
-app.post('/run-task', async (req, res) => {
+// Endpoint to trigger the task
+app.post('/run-task', authenticate, (req, res) => {
     const params = req.body;
 
-    // Validate incoming parameters (optional)
+    // Validate incoming parameters
     if (!params.start_date || !params.end_date || !params.fbAccessToken || !params.FBadAccountId) {
         return res.status(400).send({ success: false, message: 'Missing required parameters' });
     }
 
-    const result = await mainTask(params);
-    if (result.success) {
-        res.status(200).send(result);
-    } else {
-        res.status(500).send(result);
-    }
+    // Acknowledge request
+    res.status(200).send({ success: true, message: 'Task has been queued for processing' });
+
+    // Run the task in the background
+    runInBackground(mainTask, params);
 });
 
 // Start the server
