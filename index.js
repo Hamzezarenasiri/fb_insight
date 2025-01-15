@@ -1,9 +1,11 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import axios from 'axios';
 import { MongoClient, ObjectId } from 'mongodb';
-
+dotenv.config();
 // MongoDB connection
 const uri = process.env.mongodb_uri;
+console.log(uri)
 const client = new MongoClient(uri);
 const dbName = 'FluxDB';
 const FIELDS = [
