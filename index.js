@@ -462,7 +462,7 @@ const schema = [
 const app = express();
 app.use(express.json());
 // Static authentication token
-const STATIC_TOKEN = 'your-static-token'; // Replace with a secure, randomly generated token
+const STATIC_TOKEN = 'KV5NfjBPaN9JDWqbDXrjQGoyeMtQWyfG16nTHmUPXFw='; // Replace with a secure, randomly generated token
 
 // Authentication middleware
 const authenticate = (req, res, next) => {
