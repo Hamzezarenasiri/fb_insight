@@ -1094,7 +1094,7 @@ async function mainTask(params) {
     } = params;
 
     try {
-        console.log("start ....", event)
+        console.log("start ....", params)
         agencyId = new ObjectId(agencyId);
         clientId = new ObjectId(clientId);
         userId = new ObjectId(userId);
