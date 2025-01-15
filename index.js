@@ -5,7 +5,7 @@ import { MongoClient, ObjectId } from 'mongodb';
 dotenv.config();
 // MongoDB connection
 const uri = process.env.mongodb_uri;
-console.log(uri)
+const BASE_URL = "https://graph.facebook.com/v21.0";
 const client = new MongoClient(uri);
 const dbName = 'FluxDB';
 const FIELDS = [
