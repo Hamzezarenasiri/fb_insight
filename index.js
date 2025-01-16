@@ -781,7 +781,7 @@ function convertToObject(data) {
         } = item;
 
         return {
-            ad_name: ad_name || null,
+            ad_name: ad_name || "null",
             impressions: impressions || null,
             reach: reach || null,
             ctr: ctr || null,
