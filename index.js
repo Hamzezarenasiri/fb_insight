@@ -801,6 +801,7 @@ function convertToObject(data) {
             revenue: item.action_values?.purchase || null,
             video_view_3s: item.actions?.video_view || null,
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
+            video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
             post_url,
             ad_id,
             format,
