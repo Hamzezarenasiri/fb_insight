@@ -1271,6 +1271,15 @@ async function mainTask(params) {
             }
             entry.createdAt = new Date();
         }
+        if (!validatedRecords || validatedRecords.length === 0) {
+            await saveFacebookImportStatus(uuid,{
+                status:"is_empty"
+            })
+            return {
+                statusCode: 200,
+                body: JSON.stringify({message: "Is Empty"}),
+            }
+        }
         console.log("Inserting Metrics ... ")
         const insertedItems = await insertMany("metrics", validatedRecords)
         console.log("Creating report ... ")
