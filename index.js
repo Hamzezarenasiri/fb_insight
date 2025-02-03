@@ -1170,7 +1170,6 @@ async function mainTask(params) {
         console.log("Getting ads ... ")
         const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date,uuid)
         const ads = convertToObject(results)
-        console.log(ads,"<<<<<<<<<<<<<<<<<<<<<<<<<ads")
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url"].includes(item));
         const tableColumns = transformObjects(schema);
