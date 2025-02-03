@@ -566,7 +566,7 @@ function sendAlert(message) {
     console.log(`⚠️ ALERT: ${message}`);
 }
 async function sendHttpRequest({ url, method = 'GET', headers = {}, body = null, timeout = 180000 }) {
-    const maxAttempts = 7; // Maximum retry attempts
+    const maxAttempts = 8; // Maximum retry attempts
     let attempt = 0;
 
     while (attempt < maxAttempts) {
@@ -589,7 +589,7 @@ async function sendHttpRequest({ url, method = 'GET', headers = {}, body = null,
                 if (method === "POST") {
                     const invalidItems = response.data.filter(item => item?.code !== 200);
                     if (invalidItems.length > 0) {
-                        throw new Error('Some items are invalid!');
+                        throw new Error(response.data);
                     }
                 }
                 // console.log('Request succeeded:', response.data);
