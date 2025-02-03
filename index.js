@@ -745,6 +745,8 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
                         : null;
 
                     // Extract product link from creative
+                    const link_data = creativeData?.link_data;
+                    const call_to_action = creativeData?.call_to_action;
                     const product_link = creativeData?.link_data?.link ||
                                         creativeData?.call_to_action?.value?.link ||
                                         null;
@@ -754,6 +756,8 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
                         status,
                         post_url,
                         product_link, // Add product link here
+                        link_data,
+                        call_to_action,
                         format: creativeData?.object_type || null,
                     });
                 }
@@ -780,6 +784,8 @@ function convertToObject(data) {
             cpp,
             cpm,
             post_url,
+            call_to_action,
+            link_data,
             product_link,
             ad_id,
             format,
@@ -809,7 +815,9 @@ function convertToObject(data) {
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
             // video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
             post_url,
-            product_link, // Include product_link in output
+            call_to_action,
+            link_data,
+            product_link,
             ad_id,
             format,
             thumbnail_url: item.creative?.thumbnail_url,
