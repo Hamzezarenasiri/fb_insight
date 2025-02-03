@@ -776,8 +776,6 @@ function convertToObject(data) {
             cpp,
             cpm,
             post_url,
-            call_to_action,
-            product_link,
             ad_id,
             format,
             ...restOfItem
@@ -806,8 +804,6 @@ function convertToObject(data) {
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
             // video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
             post_url,
-            call_to_action,
-            product_link,
             ad_id,
             format,
             thumbnail_url: item.creative?.thumbnail_url,
