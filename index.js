@@ -721,7 +721,7 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
 
         const thumbnailsBatchRequests = adIds.map((adId) => ({
             method: "GET",
-            relative_url: `${adId}?fields=status,creative{effective_object_story_id,object_type,image_url,thumbnail_url,call_to_action}`,
+            relative_url: `${adId}?fields=status,creative{effective_object_story_id,object_type,image_url,thumbnail_url}`,
         }));
 
         const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests,fbAccessToken)) || [];
@@ -745,15 +745,11 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
                         : null;
 
                     // Extract product link from creative
-                    const call_to_action = creativeData?.call_to_action;
-                    const product_link = creativeData?.call_to_action?.value?.link || null;
                     insights.push({
                         ...insightData,
                         creative: creativeData,
                         status,
                         post_url,
-                        product_link, // Add product link here
-                        call_to_action,
                         format: creativeData?.object_type || null,
                     });
                 }
