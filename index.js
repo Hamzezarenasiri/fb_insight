@@ -721,7 +721,7 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
 
         const thumbnailsBatchRequests = adIds.map((adId) => ({
             method: "GET",
-            relative_url: `${adId}?fields=status,creative{effective_object_story_id,object_type,image_url,thumbnail_url,link_data,call_to_action}`,
+            relative_url: `${adId}?fields=status,creative{effective_object_story_id,object_type,image_url,thumbnail_url,call_to_action}`,
         }));
 
         const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests,fbAccessToken)) || [];
@@ -745,18 +745,14 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
                         : null;
 
                     // Extract product link from creative
-                    const link_data = creativeData?.link_data;
                     const call_to_action = creativeData?.call_to_action;
-                    const product_link = creativeData?.link_data?.link ||
-                                        creativeData?.call_to_action?.value?.link ||
-                                        null;
+                    const product_link = creativeData?.call_to_action?.value?.link || null;
                     insights.push({
                         ...insightData,
                         creative: creativeData,
                         status,
                         post_url,
                         product_link, // Add product link here
-                        link_data,
                         call_to_action,
                         format: creativeData?.object_type || null,
                     });
@@ -785,7 +781,6 @@ function convertToObject(data) {
             cpm,
             post_url,
             call_to_action,
-            link_data,
             product_link,
             ad_id,
             format,
@@ -816,7 +811,6 @@ function convertToObject(data) {
             // video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
             post_url,
             call_to_action,
-            link_data,
             product_link,
             ad_id,
             format,
