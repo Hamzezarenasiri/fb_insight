@@ -721,7 +721,7 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
 
         const thumbnailsBatchRequests = adIds.map((adId) => ({
             method: "GET",
-            relative_url: `${adId}?fields=status,creative{effective_object_story_id,object_type,image_url,thumbnail_url}`,
+            relative_url: `${adId}?fields=status,creative{effective_object_story_id,object_type,image_url,thumbnail_url,link_data,call_to_action}`,
         }));
 
         const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests,fbAccessToken)) || [];
@@ -744,11 +744,16 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
                         ? `https://www.facebook.com/${creativeData.effective_object_story_id}`
                         : null;
 
+                    // Extract product link from creative
+                    const product_link = creativeData?.link_data?.link ||
+                                        creativeData?.call_to_action?.value?.link ||
+                                        null;
                     insights.push({
                         ...insightData,
                         creative: creativeData,
                         status,
                         post_url,
+                        product_link, // Add product link here
                         format: creativeData?.object_type || null,
                     });
                 }
@@ -775,6 +780,7 @@ function convertToObject(data) {
             cpp,
             cpm,
             post_url,
+            product_link,
             ad_id,
             format,
             ...restOfItem
@@ -803,6 +809,7 @@ function convertToObject(data) {
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
             // video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
             post_url,
+            product_link, // Include product_link in output
             ad_id,
             format,
             thumbnail_url: item.creative?.thumbnail_url,
