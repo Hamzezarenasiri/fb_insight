@@ -589,7 +589,7 @@ async function sendHttpRequest({ url, method = 'GET', headers = {}, body = null,
                 if (method === "POST") {
                     const invalidItems = response.data.filter(item => item?.code !== 200);
                     if (invalidItems.length > 0) {
-                        throw new Error(response.data);
+                        throw new Error(JSON.stringify(response.data));
                     }
                 }
                 // console.log('Request succeeded:', response.data);
