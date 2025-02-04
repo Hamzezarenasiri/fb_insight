@@ -1250,7 +1250,7 @@ async function mainTask(params) {
         for (const entry of validatedRecords) {
             if (asset_ids?.[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]) {
                 entry.asset_id = asset_ids[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]
-                await updateOneDocument("assets", {_id:new ObjectId(entry.asset_id)},{
+                await updateOneDocument("assets", {_id:new ObjectId(entry.asset_id)},{$set:{
                         agency_id: agencyId,
                         client_id: clientId,
                         import_list_id: import_list_inserted.insertedId,
@@ -1261,7 +1261,7 @@ async function mainTask(params) {
                         format: entry.format,
                         thumbnail_url: entry.thumbnail_url,
                         meta_data: entry
-                    }
+                    }}
                 )
             } else {
                 try {
