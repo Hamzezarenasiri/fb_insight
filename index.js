@@ -721,7 +721,7 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
 
         const adDetailBatchRequests = adIds.map((adId) => ({
             method: "GET",
-            relative_url: `${adId}?fields=status,creative{id,effective_object_story_id,object_type,video_id},source_ad_id,name,preview_shareable_link`,
+            relative_url: `${adId}?fields=status,creative{id,name,video_id,object_id,product_data,product_set_id,object_story_id,effective_object_story_id,object_store_url,object_type,thumbnail_id,destination_set_id,instagram_permalink_url,link_og_id,link_url,object_url},source_ad_id,name,preview_shareable_link`,
         }));
 
         const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests,fbAccessToken)) || [];
