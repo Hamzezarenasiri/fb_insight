@@ -719,27 +719,27 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
             relative_url: `${adId}/insights?level=ad&fields=${FIELDS}`,
         }));
 
-        const thumbnailsBatchRequests = adIds.map((adId) => ({
+        const adDetailBatchRequests = adIds.map((adId) => ({
             method: "GET",
-            relative_url: `${adId}?fields=status,creative{effective_object_story_id,object_type,image_url,thumbnail_url}`,
+            relative_url: `${adId}?fields=status,creative{id,effective_object_story_id,object_type,video_id},source_ad_id,name,preview_shareable_link`,
         }));
 
         const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests,fbAccessToken)) || [];
-        const thumbnailsBatchResponse = (await fetchBatchData(thumbnailsBatchRequests,fbAccessToken)) || [];
-        const thumbnailsBatch = {};
-        thumbnailsBatchResponse.forEach((item) => {
+        const adDetailBatchResponse = (await fetchBatchData(adDetailBatchRequests,fbAccessToken)) || [];
+        const adDetailBatch = {};
+        adDetailBatchResponse.forEach((item) => {
             if (item.body) {
                 const bodyData = JSON.parse(item.body);
-                thumbnailsBatch[bodyData.id] = bodyData;
+                adDetailBatch[bodyData.id] = bodyData;
             }
         });
 
-        if (insightsBatchResponse && thumbnailsBatchResponse) {
+        if (insightsBatchResponse && adDetailBatchResponse) {
             insightsBatchResponse.forEach((result) => {
                 if (result.body) {
                     const insightData = convertListsToDict(JSON.parse(result.body)?.data?.[0]);
-                    const creativeData = thumbnailsBatch[insightData.ad_id]?.creative || {};
-                    const status = thumbnailsBatch[insightData.ad_id]?.status || {};
+                    const creativeData = adDetailBatch[insightData.ad_id]?.creative || {};
+                    const status = adDetailBatch[insightData.ad_id]?.status || {};
                     const post_url = creativeData.effective_object_story_id
                         ? `https://www.facebook.com/${creativeData.effective_object_story_id}`
                         : null;
