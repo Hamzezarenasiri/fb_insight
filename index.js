@@ -1250,6 +1250,7 @@ async function mainTask(params) {
         for (const entry of validatedRecords) {
             if (asset_ids?.[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]) {
                 entry.asset_id = asset_ids[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]
+                // remove this part of code when all asset updated
                 await updateOneDocument("assets", {_id:new ObjectId(entry.asset_id)},{$set:{
                         agency_id: agencyId,
                         client_id: clientId,
