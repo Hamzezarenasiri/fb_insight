@@ -1262,6 +1262,7 @@ async function mainTask(params) {
                             post_url: entry.post_url,
                             format: entry.format,
                             thumbnail_url: entry.thumbnail_url,
+                            meta_data: entry
                         }
                     );
                     entry.asset_id = new_asset.insertedId
