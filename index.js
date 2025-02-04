@@ -1250,6 +1250,19 @@ async function mainTask(params) {
         for (const entry of validatedRecords) {
             if (asset_ids?.[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]) {
                 entry.asset_id = asset_ids[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]
+                await updateOneDocument("assets", {_id:new ObjectId(entry.asset_id)},{
+                        agency_id: agencyId,
+                        client_id: clientId,
+                        import_list_id: import_list_inserted.insertedId,
+                        user_id: userId,
+                        ad_id: entry.ad_id,
+                        adname: entry.Ad_Name,
+                        post_url: entry.post_url,
+                        format: entry.format,
+                        thumbnail_url: entry.thumbnail_url,
+                        meta_data: entry
+                    }
+                )
             } else {
                 try {
                     const new_asset = await insertOneDocument("assets", {
