@@ -108,7 +108,7 @@ const FIELDS = [
     "website_ctr",
     "website_purchase_roas",
 ].join(",");
-const schema = [
+let schema = [
     {
         "key" : "Ad_Name",
         "title" : "Ad Name",
@@ -454,7 +454,7 @@ const schema = [
             "cpql"
         ],
         "order_preference" : "acs",
-        "format" : "curreny",
+        "format" : "currency",
         "formula" : "spend / lead"
     },
     {
@@ -648,7 +648,7 @@ function convertListsToDict(data) {
         if (Array.isArray(value)) {
             if (value.every(item => typeof item === 'object' && item !== null && 'action_type' in item && 'value' in item)) {
                 data[key] = value.reduce((acc, item) => {
-                    acc[item.action_type] = Array.isArray(item.value)
+                    acc[item.action_type.replace(".","_")] = Array.isArray(item.value)
                         ? item.value
                         : parseFloat(item.value);
                     return acc;
@@ -776,7 +776,8 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
 
     return insights;
 };
-function convertToObject(data) {
+function convertToObject(data,ad_objective_field_expr) {
+    const expr = ad_objective_field_expr.split(".")
     return data.map((item) => {
         const {
             ad_name,
@@ -815,6 +816,8 @@ function convertToObject(data) {
             video_view_3s: item.actions?.video_view || null,
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
             video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
+            [expr[1]] :  item?.[expr[0]]?.[expr[1]],
+            cpr:  item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
             post_url,
             ad_id,
             format,
@@ -1123,10 +1126,37 @@ async function mainTask(params) {
         FBadAccountId,
         importListName,
         uuid,
+        ad_objective_id,
+        ad_objective_field_expr
     } = params;
 
     try {
         console.log("start ....", params)
+        schema.push({
+            "key" : "cpr",
+            "title" : "CPR",
+            "type" : "float",
+            "required" : false,
+            "description" : "CPR is the cost per Result.",
+            "is_default" : true,
+            "similar_dictionary" : [
+                "cpr",
+                "cost per result",],
+            "order_preference" : "acs",
+            "format" : "currency",
+            "formula" : `(spend / ${ad_objective_id})`
+        })
+        schema.push({
+            "key" : ad_objective_field_expr.split(".")?.[1],
+            "title" : ad_objective_field_expr.split(".")?.[1]?.toUpperCase().replaceAll("_"," "),
+            "type" : "float",
+            "required" : false,
+            "description" : "Result.",
+            "is_default" : true,
+            "order_preference" : "decs",
+            "format" : "number",
+            "formula" : "N/A"
+        })
         agencyId = new ObjectId(agencyId);
         clientId = new ObjectId(clientId);
         userId = new ObjectId(userId);
@@ -1181,9 +1211,9 @@ async function mainTask(params) {
         ]))[0];
         console.log("Getting ads ... ")
         const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date,uuid)
-        const ads = convertToObject(results)
+        const ads = convertToObject(results, ad_objective_field_expr)
         const exist_fields = findNonEmptyKeys(ads)
-        const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url"].includes(item));
+        const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url",].includes(item));
         const tableColumns = transformObjects(schema);
         const result = Headers.map(item => {
             const {key, similarity} = findMostSimilarKey(item, tableColumns);
@@ -1392,3 +1422,19 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+// console.log(await  mainTask(
+//     {
+//         fbAccessToken:"EAAIZAsmwy9VgBO5jZBI1UMh2v5DUwyl2M6nq3xRbCrN1Bg2KXDLO0nFpL1H2SivDBCv88HlwcpO1rJqCakQxJ0gSjgoa7v50pXsPtV4yZCZB2gdngaqyxBlusasgBRdC3Om0sUDN2AUCTOjZAZApRzpGjbSUmgBWAqE5siInyC7wrD8VCDycRUDtecAEwvLftHVGbHpk4iszsh3lUmlIFjv8LnYQuC4LYrKRYyJYe6C7Oh0UTLcIQQYQZDZD",
+//         FBadAccountId:"act_2177038889076275",
+//         start_date:"2025-02-09",
+//         end_date:"2025-02-10",
+//         agencyId:"6656208cdb5d669b53cc98c5",
+//         clientId:"66563830f3e130c7a1c005f9",
+//         userId:"66b03f924a9351d9433dca51",
+//         importListName:"Activation Products - Ease Magnesium-2Days",
+//         uuid:"82676d40-10d8-4175-a15d-597f2bd64da5",
+//         ad_objective_id:"landing_page_views",
+//         ad_objective_field_expr:"actions.landing_page_view"
+//     }
+// ))
