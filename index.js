@@ -456,6 +456,18 @@ const schema = [
         "order_preference" : "acs",
         "format" : "curreny",
         "formula" : "spend / lead"
+    },
+    {
+        "key" : "video_avg_time_watched",
+        "is_default" : true,
+        "title" : "Video Average Time Watched",
+        "description" : "",
+        "required" : false,
+        "type" : "integer",
+        "similar_dictionary" : [ "video_avg_time_watched", "Video Average Time Watched", "Average Time", "Video Average" ],
+        "order_preference" : "decs",
+        "format" : "number",
+        "formula" : "N/A"
     }
 ]
 
@@ -721,7 +733,7 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
 
         const adDetailBatchRequests = adIds.map((adId) => ({
             method: "GET",
-            relative_url: `${adId}?fields=status,creative{id,name,video_id,object_id,product_data,product_set_id,object_story_id,effective_object_story_id,object_store_url,object_type,thumbnail_id,destination_set_id,instagram_permalink_url,link_og_id,link_url,object_url},source_ad_id,name,preview_shareable_link`,
+            relative_url: `${adId}?fields=status,creative{id,name,video_id,object_id,product_data,product_set_id,object_story_id,effective_object_story_id,object_story_spec,object_store_url,object_type,thumbnail_id,destination_set_id,instagram_permalink_url,link_og_id,link_url,object_url},source_ad_id,name,preview_shareable_link`,
         }));
 
         const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests,fbAccessToken)) || [];
