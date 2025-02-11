@@ -816,7 +816,7 @@ function convertToObject(data,ad_objective_field_expr,ad_objective_id) {
             video_view_3s: item.actions?.video_view || null,
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
             video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
-            [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
+            // [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
             result :  item?.[expr[0]]?.[expr[1]],
             cpr:  item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
             post_url,
@@ -1149,6 +1149,7 @@ async function mainTask(params) {
         })
         schema.push({
             "key" : "result",
+            "second_key":ad_objective_id,
             "title" : ad_objective_id?.toUpperCase().replaceAll("_"," "),
             "type" : "float",
             "required" : false,
