@@ -776,7 +776,7 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
 
     return insights;
 };
-function convertToObject(data,ad_objective_field_expr) {
+function convertToObject(data,ad_objective_field_expr,ad_objective_id) {
     const expr = ad_objective_field_expr.split(".")
     return data.map((item) => {
         const {
@@ -816,7 +816,8 @@ function convertToObject(data,ad_objective_field_expr) {
             video_view_3s: item.actions?.video_view || null,
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
             video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
-            [expr[1]] :  item?.[expr[0]]?.[expr[1]],
+            [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
+            result :  item?.[expr[0]]?.[expr[1]],
             cpr:  item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
             post_url,
             ad_id,
@@ -1147,11 +1148,22 @@ async function mainTask(params) {
             "formula" : `(spend / ${ad_objective_id})`
         })
         schema.push({
-            "key" : ad_objective_field_expr.split(".")?.[1],
+            "key" : "result",
             "title" : ad_objective_field_expr.split(".")?.[1]?.toUpperCase().replaceAll("_"," "),
             "type" : "float",
             "required" : false,
             "description" : "Result.",
+            "is_default" : true,
+            "order_preference" : "decs",
+            "format" : "number",
+            "formula" : "N/A"
+        })
+        schema.push({
+            "key" : ad_objective_id,
+            "title" : ad_objective_id?.toUpperCase().replaceAll("_"," "),
+            "type" : "float",
+            "required" : false,
+            "description" : "",
             "is_default" : true,
             "order_preference" : "decs",
             "format" : "number",
@@ -1211,7 +1223,7 @@ async function mainTask(params) {
         ]))[0];
         console.log("Getting ads ... ")
         const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date,uuid)
-        const ads = convertToObject(results, ad_objective_field_expr)
+        const ads = convertToObject(results, ad_objective_field_expr,ad_objective_id)
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url",].includes(item));
         const tableColumns = transformObjects(schema);
