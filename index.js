@@ -1269,7 +1269,7 @@ async function mainTask(params) {
                     };
                     return acc;
                 }, {}),
-            schema: schema,
+            schema: [...new Set(schema)],
         };
         const import_list_inserted = await insertOneDocument("imported_lists", importListDocument);
         const newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted);
