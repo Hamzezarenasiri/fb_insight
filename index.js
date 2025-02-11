@@ -230,25 +230,7 @@ let schema = [
         "format" : "percent",
         "formula" : "link_clicks / impressions"
     },
-    {
-        "key" : "cvr",
-        "title" : "CVR",
-        "type" : "float",
-        "required" : false,
-        "description" : "CVR is the conversion rate, which is the percentage of users who completed a desired action after clicking on your ad.",
-        "is_default" : true,
-        "similar_dictionary" : [
-            "Conversion Rate",
-            "cvr",
-            "conv rate",
-            "conversions rate",
-            "action rate",
-            "goal rate"
-        ],
-        "order_preference" : "decs",
-        "format" : "percent",
-        "formula" : "purchases / link_clicks"
-    },
+
     {
         "key" : "hold",
         "title" : "Hold",
@@ -808,7 +790,7 @@ function convertToObject(data,ad_objective_field_expr,ad_objective_id) {
             vvr: item.actions?.video_view / impressions || null,
             hold: item.video_thruplay_watched_actions?.video_view / impressions || null,
             cpa: item.cost_per_action_type?.purchase || null,
-            cvr: item.actions?.purchase / item.actions?.link_click || null,
+            cvr: item.actions?.[item?.[expr[0]]?.[expr[1]]] / item.actions?.link_click || null,
             roas: item.purchase_roas?.omni_purchase || null,
             cpc: item.cost_per_action?.link_click || spend / item.actions?.link_click || null,
             cpl: item.cost_per_action?.lead || null,
@@ -1148,6 +1130,25 @@ async function mainTask(params) {
             "formula" : `spend / result`
             // "formula" : `(spend / ${ad_objective_id})`
         })
+        schema.push(    {
+            "key" : "cvr",
+            "title" : "CVR",
+            "type" : "float",
+            "required" : false,
+            "description" : "CVR is the conversion rate, which is the percentage of users who completed a desired action after clicking on your ad.",
+            "is_default" : true,
+            "similar_dictionary" : [
+                "Conversion Rate",
+                "cvr",
+                "conv rate",
+                "conversions rate",
+                "action rate",
+                "goal rate"
+            ],
+            "order_preference" : "decs",
+            "format" : "percent",
+            "formula" : "result / link_clicks"
+        },)
         schema.push({
             "key" : "result",
             "second_key":ad_objective_id,
