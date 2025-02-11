@@ -1265,6 +1265,7 @@ async function mainTask(params) {
                         "description": item.description,
                         "order_preference": item.order_preference,
                         "format": item.format || null,
+                        "formula": item.formula || null,
                     };
                     return acc;
                 }, {}),
