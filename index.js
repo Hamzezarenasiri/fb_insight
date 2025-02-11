@@ -1145,7 +1145,7 @@ async function mainTask(params) {
                 "cost per result",],
             "order_preference" : "acs",
             "format" : "currency",
-            "formula" : `(spend / result)`
+            "formula" : `spend / result`
             // "formula" : `(spend / ${ad_objective_id})`
         })
         schema.push({
