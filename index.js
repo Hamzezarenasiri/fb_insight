@@ -1149,7 +1149,7 @@ async function mainTask(params) {
         })
         schema.push({
             "key" : "result",
-            "title" : ad_objective_field_expr.split(".")?.[1]?.toUpperCase().replaceAll("_"," "),
+            "title" : ad_objective_id?.toUpperCase().replaceAll("_"," "),
             "type" : "float",
             "required" : false,
             "description" : "Result.",
@@ -1158,17 +1158,17 @@ async function mainTask(params) {
             "format" : "number",
             "formula" : "N/A"
         })
-        schema.push({
-            "key" : ad_objective_id,
-            "title" : ad_objective_id?.toUpperCase().replaceAll("_"," "),
-            "type" : "float",
-            "required" : false,
-            "description" : "",
-            "is_default" : true,
-            "order_preference" : "decs",
-            "format" : "number",
-            "formula" : "N/A"
-        })
+        // schema.push({
+        //     "key" : ad_objective_id,
+        //     "title" : ad_objective_id?.toUpperCase().replaceAll("_"," "),
+        //     "type" : "float",
+        //     "required" : false,
+        //     "description" : "",
+        //     "is_default" : true,
+        //     "order_preference" : "decs",
+        //     "format" : "number",
+        //     "formula" : "N/A"
+        // })
         agencyId = new ObjectId(agencyId);
         clientId = new ObjectId(clientId);
         userId = new ObjectId(userId);
