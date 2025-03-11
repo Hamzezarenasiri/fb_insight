@@ -458,9 +458,6 @@ let schema = [
 
 const app = express();
 app.use(express.json());
-app.get("/debug-sentry", function mainHandler(req, res) {
-    throw new Error("My first Sentry error!");
-});
 // Static authentication token
 const STATIC_TOKEN = 'KV5NfjBPaN9JDWqbDXrjQGoyeMtQWyfG16nTHmUPXFw='; // Replace with a secure, randomly generated token
 
