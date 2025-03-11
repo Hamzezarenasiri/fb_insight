@@ -458,13 +458,6 @@ let schema = [
 
 const app = express();
 app.use(express.json());
-Sentry.setupExpressErrorHandler(app);
-app.use(function onError(err, req, res, next) {
-    // The error id is attached to `res.sentry` to be returned
-    // and optionally displayed to the user for support.
-    res.statusCode = 500;
-    res.end(res.sentry + "\n");
-});
 app.get("/debug-sentry", function mainHandler(req, res) {
     throw new Error("My first Sentry error!");
 });
@@ -1602,6 +1595,15 @@ app.post('/run-task', authenticate, (req, res) => {
     runInBackground(mainTask, params);
 });
 
+Sentry.setupExpressErrorHandler(app);
+
+// Optional fallthrough error handler
+app.use(function onError(err, req, res, next) {
+    // The error id is attached to `res.sentry` to be returned
+    // and optionally displayed to the user for support.
+    res.statusCode = 500;
+    res.end(res.sentry + "\n");
+});
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
