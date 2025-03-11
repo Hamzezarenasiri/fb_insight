@@ -1554,6 +1554,7 @@ async function mainTask(params) {
                 createdAt: new Date()
             })
         }
+        await updateMessagesAndLinks(clientId)
         await saveFacebookImportStatus(uuid,{
             status:"success"
         })
