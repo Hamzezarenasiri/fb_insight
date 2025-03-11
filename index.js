@@ -1,8 +1,11 @@
+import * as Sentry from "@sentry/node"
 import dotenv from 'dotenv';
 import express from 'express';
 import axios from 'axios';
 import {MongoClient, ObjectId} from 'mongodb';
-
+Sentry.init({
+    dsn: "https://a51aca261c977758f4342257034a5d59@o1178736.ingest.us.sentry.io/4508958246043648",
+});
 dotenv.config();
 const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v21.0";
@@ -455,6 +458,16 @@ let schema = [
 
 const app = express();
 app.use(express.json());
+Sentry.setupExpressErrorHandler(app);
+app.use(function onError(err, req, res, next) {
+    // The error id is attached to `res.sentry` to be returned
+    // and optionally displayed to the user for support.
+    res.statusCode = 500;
+    res.end(res.sentry + "\n");
+});
+app.get("/debug-sentry", function mainHandler(req, res) {
+    throw new Error("My first Sentry error!");
+});
 // Static authentication token
 const STATIC_TOKEN = 'KV5NfjBPaN9JDWqbDXrjQGoyeMtQWyfG16nTHmUPXFw='; // Replace with a secure, randomly generated token
 
