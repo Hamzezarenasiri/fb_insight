@@ -1,8 +1,8 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import axios from 'axios';
-import { MongoClient, ObjectId } from 'mongodb';
-import bodyParser from 'body-parser';
+import {MongoClient, ObjectId} from 'mongodb';
+
 dotenv.config();
 const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v21.0";
@@ -1098,6 +1098,138 @@ async function saveFacebookImportStatus(uuid, updateValues) {
         console.error("Failed to save Facebook import status:", error);
     }
 }
+async function getFbAdPreview(adId, fbGraphToken) {
+    const url = `${BASE_URL}/${adId}/previews?ad_format=MOBILE_FEED_STANDARD`;
+    const headers = {
+        "Authorization": `Bearer ${fbGraphToken}`,
+        "Content-Type": "application/json",
+    };
+
+    try {
+        const response = await axios.get(url, { headers });
+        const preview = response.data;
+        if (preview && preview.data && preview.data.length > 0) {
+            const body = preview.data[0].body || "";
+            const match = body.match(/src="([^"]+)"/);
+            if (match) {
+                return match[1].replace("amp;", "");
+            }
+        }
+    } catch (error) {
+        console.error("Error fetching FB ad preview:", error);
+    }
+    return null;
+}
+
+async function getSource(url, post = null) {
+    const headers = {
+        "sec-fetch-user": "?1",
+        "sec-ch-ua-mobile": "?0",
+        "sec-fetch-site": "none",
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "cache-control": "max-age=0",
+        "upgrade-insecure-requests": "1",
+        "accept-language": "en-GB,en;q=0.9",
+        "sec-ch-ua": `"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"`,
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    };
+
+    try {
+        let response;
+        if (post) {
+            response = await axios.post(url, post, { headers });
+        } else {
+            response = await axios.get(url, { headers });
+        }
+        return response.data;
+    } catch (error) {
+        console.error("Request failed:", error);
+        return null;
+    }
+}
+function extractAndDecode(linkUrl) {
+    const prefix = "https://l.facebook.com/l.php?u=";
+    if (linkUrl) {
+        if (linkUrl.startsWith(prefix)) {
+            // Remove the prefix
+            const remaining = linkUrl.slice(prefix.length);
+            // Find the position of the first '&' that indicates the end of the URL parameter
+            const endIndex = remaining.indexOf("&");
+            const encodedUrl = endIndex !== -1 ? remaining.slice(0, endIndex) : remaining;
+            // Decode the URL
+            return decodeURIComponent(encodedUrl);
+        }
+    }
+    return linkUrl;
+}
+
+async function getPropsOfSource(url) {
+    const source = await getSource(url);
+    if (source) {
+        // Use the s flag so that . matches newline characters.
+        const pattern = /"props":\s*(.*?)\s*,\s*"placeholderElement":/s;
+        const match = source.match(pattern);
+        if (match) {
+            const capturedText = match[1];
+            let previewData;
+            try {
+                previewData = JSON.parse(capturedText);
+            } catch (e) {
+                previewData = {};
+            }
+            const product_link =
+                previewData.attachmentsData?.[0]?.attachmentDataList?.[0]?.navigation?.link_url;
+            const message = previewData.messageData?.message;
+            return {
+                preview_data: previewData || {},
+                product_link: extractAndDecode(product_link) || "",
+                message: message || "",
+            };
+        }
+    }
+    return { message: "", product_link: "", preview_data: {} };
+}
+
+async function updateMessagesAndLinks(clientId) {
+    // Retrieve the client document using the provided clientId.
+    const client = await findOneDocument("clients", { _id: clientId });
+    const accessToken = client.fb_config?.access_token || {};
+
+    // Find assets where ad_id exists and both message and product_link in fb_data do not exist.
+    const assets = await findDocuments(
+        "assets",
+        {
+            client_id: clientId,
+            ad_id: { $exists: true },
+            "meta_data.fb_data.message": { $exists: false },
+            "meta_data.fb_data.product_link": { $exists: false },
+        },
+        { _id: 1, ad_id: 1 }
+    );
+
+    for (const asset of assets) {
+        // Retrieve the Facebook ad preview URL using the asset's ad_id.
+        const url = await getFbAdPreview(asset.ad_id, accessToken);
+        const props = await getPropsOfSource(url);
+
+        // Update the asset document with the fetched message, product_link, and preview_data.
+        await updateOneDocument(
+            "assets",
+            { _id: new ObjectId(asset._id) },
+            {
+                $set: {
+                    "meta_data.fb_data": {
+                        message: props.message,
+                        product_link: props.product_link,
+                        preview_data: props.preview_data,
+                    },
+                },
+            }
+        );
+    }
+}
 
 async function mainTask(params) {
     let {
@@ -1307,10 +1439,48 @@ async function mainTask(params) {
         ]);
         let asset_ids = AssetsIds[0] || {}
         for (const entry of validatedRecords) {
+              const creative = entry.other_fields ? entry.other_fields.creative : undefined;
+              let product_link = null;
+              let message = null;
+
+              if (creative) {
+                const objectStorySpec = creative.object_story_spec || {};
+                product_link =
+                  objectStorySpec.link_data?.link ||
+                  objectStorySpec.video_data?.call_to_action?.value?.link ||
+                  objectStorySpec.template_data?.link;
+                message =
+                  objectStorySpec.link_data?.message ||
+                  objectStorySpec.video_data?.message ||
+                  objectStorySpec.template_data?.message;
+              }
+
             if (asset_ids?.[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]) {
                 entry.asset_id = asset_ids[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]
+                const set_dict = {
+                    agency_id: agencyId,
+                    client_id: clientId,
+                    import_list_id: import_list_inserted.insertedId,
+                    user_id: userId,
+                    ad_id: entry.ad_id,
+                    adname: entry.Ad_Name,
+                    post_url: entry.post_url,
+                    format: entry.format,
+                    thumbnail_url: entry.thumbnail_url,
+                    "meta_data.fb_data.creative": creative,
+                };
+                if (message) {  set_dict["meta_data.fb_data.message"] = message; }
+                if (product_link) { set_dict["meta_data.fb_data.product_link"] = product_link; }
                 // remove this part of code when all asset updated
-                await updateOneDocument("assets", {_id:new ObjectId(entry.asset_id)},{$set:{
+                await updateOneDocument("assets", {_id:new ObjectId(entry.asset_id)},{$set:set_dict}
+                )
+            } else {
+                try {
+                    const fb_data = { creative };
+                    entry.fb_data = fb_data;
+                    if (message) { fb_data.message = message;}
+                    if (product_link) {fb_data.product_link = product_link;}
+                    const new_asset = await insertOneDocument("assets", {
                         agency_id: agencyId,
                         client_id: clientId,
                         import_list_id: import_list_inserted.insertedId,
@@ -1320,24 +1490,8 @@ async function mainTask(params) {
                         post_url: entry.post_url,
                         format: entry.format,
                         thumbnail_url: entry.thumbnail_url,
-                        meta_data: {fb_data : entry.other_fields?.creative}
-                    }}
-                )
-            } else {
-                try {
-                    const new_asset = await insertOneDocument("assets", {
-                            agency_id: agencyId,
-                            client_id: clientId,
-                            import_list_id: import_list_inserted.insertedId,
-                            user_id: userId,
-                            ad_id: entry.ad_id,
-                            adname: entry.Ad_Name,
-                            post_url: entry.post_url,
-                            format: entry.format,
-                            thumbnail_url: entry.thumbnail_url,
-                            meta_data: entry
-                        }
-                    );
+                        meta_data: entry
+                    });
                     entry.asset_id = new_asset.insertedId
                     asset_ids[entry.Ad_Name] = new_asset.insertedId
                 } catch (error) {
