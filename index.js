@@ -1167,6 +1167,23 @@ function extractAndDecode(linkUrl) {
     }
     return linkUrl;
 }
+function removeUTM(url) {
+    try {
+        let urlObj = new URL(url);
+        let params = new URLSearchParams(urlObj.search);
+
+        // List of UTM parameters to remove
+        const utmParams = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+
+        utmParams.forEach(param => params.delete(param));
+
+        // Construct the new URL without UTM parameters
+        urlObj.search = params.toString();
+        return urlObj.toString();
+    } catch (error) {
+        return null;
+    }
+}
 
 async function getPropsOfSource(url) {
     const source = await getSource(url);
@@ -1185,14 +1202,16 @@ async function getPropsOfSource(url) {
             const product_link =
                 previewData.attachmentsData?.[0]?.attachmentDataList?.[0]?.navigation?.link_url;
             const message = previewData.messageData?.message;
+            let productLink = extractAndDecode(product_link) || "";
             return {
                 preview_data: previewData || {},
-                product_link: extractAndDecode(product_link) || "",
+                product_link: productLink,
+                product_url: removeUTM(productLink),
                 message: message || "",
             };
         }
     }
-    return { message: "", product_link: "", preview_data: {} };
+    return { message: "", product_link: "",product_url:null, preview_data: {} };
 }
 
 async function updateMessagesAndLinks(clientId) {
@@ -1226,6 +1245,7 @@ async function updateMessagesAndLinks(clientId) {
                     "meta_data.fb_data": {
                         message: props.message,
                         product_link: props.product_link,
+                        product_url: props.product_url,
                         preview_data: props.preview_data,
                     },
                 },
@@ -1473,7 +1493,10 @@ async function mainTask(params) {
                     "meta_data.fb_data.creative": creative,
                 };
                 if (message) {  set_dict["meta_data.fb_data.message"] = message; }
-                if (product_link) { set_dict["meta_data.fb_data.product_link"] = product_link; }
+                if (product_link) {
+                    set_dict["meta_data.fb_data.product_link"] = product_link;
+                    set_dict["meta_data.fb_data.product_url"] = removeUTM(product_link);
+                }
                 // remove this part of code when all asset updated
                 await updateOneDocument("assets", {_id:new ObjectId(entry.asset_id)},{$set:set_dict}
                 )
@@ -1482,7 +1505,10 @@ async function mainTask(params) {
                     const fb_data = { creative };
                     entry.fb_data = fb_data;
                     if (message) { fb_data.message = message;}
-                    if (product_link) {fb_data.product_link = product_link;}
+                    if (product_link) {
+                        fb_data.product_link = product_link;
+                        fb_data.product_url = removeUTM(product_link);
+                    }
                     const new_asset = await insertOneDocument("assets", {
                         agency_id: agencyId,
                         client_id: clientId,
