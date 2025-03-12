@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import axios from 'axios';
 import {MongoClient, ObjectId} from 'mongodb';
+
 Sentry.init({
     dsn: "https://a51aca261c977758f4342257034a5d59@o1178736.ingest.us.sentry.io/4508958246043648",
 });
@@ -113,13 +114,13 @@ const FIELDS = [
 ].join(",");
 let schema = [
     {
-        "key" : "Ad_Name",
-        "title" : "Ad Name",
-        "type" : "string",
-        "required" : true,
-        "description" : "Ad Name refers to the name or title given to the advertisement.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "Ad_Name",
+        "title": "Ad Name",
+        "type": "string",
+        "required": true,
+        "description": "Ad Name refers to the name or title given to the advertisement.",
+        "is_default": true,
+        "similar_dictionary": [
             "Ad name",
             "file name",
             "Ad Name",
@@ -131,18 +132,18 @@ let schema = [
             "adname",
             "ad name"
         ],
-        "order_preference" : "decs",
-        "format" : "text",
-        "formula" : "N/A"
+        "order_preference": "decs",
+        "format": "text",
+        "formula": "N/A"
     },
     {
-        "key" : "spend",
-        "title" : "Spend",
-        "type" : "float",
-        "required" : true,
-        "description" : "Spend is the total amount of money spent on your ad campaign.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "spend",
+        "title": "Spend",
+        "type": "float",
+        "required": true,
+        "description": "Spend is the total amount of money spent on your ad campaign.",
+        "is_default": true,
+        "similar_dictionary": [
             "Amount",
             "Amount spent (USD)",
             "spent",
@@ -154,42 +155,42 @@ let schema = [
             "spend",
             "Spend"
         ],
-        "order_preference" : "decs",
-        "format" : "currency",
-        "formula" : "N/A"
+        "order_preference": "decs",
+        "format": "currency",
+        "formula": "N/A"
     },
     {
-        "key" : "aov",
-        "title" : "AOV",
-        "type" : "float",
-        "required" : false,
-        "description" : "AOV stands for Average Order Value, which is the average amount spent each time a customer places an order.",
-        "is_default" : true,
-        "similar_dictionary" : [ "Average Order Value", "aov", "avg order value", "order value average", "average purchase value" ],
-        "order_preference" : "decs",
-        "format" : "currency",
-        "formula" : "revenue / purchases"
+        "key": "aov",
+        "title": "AOV",
+        "type": "float",
+        "required": false,
+        "description": "AOV stands for Average Order Value, which is the average amount spent each time a customer places an order.",
+        "is_default": true,
+        "similar_dictionary": ["Average Order Value", "aov", "avg order value", "order value average", "average purchase value"],
+        "order_preference": "decs",
+        "format": "currency",
+        "formula": "revenue / purchases"
     },
     {
-        "key" : "cpa",
-        "title" : "CPA",
-        "type" : "float",
-        "required" : false,
-        "description" : "Cost Per Acquisition",
-        "is_default" : false,
-        "similar_dictionary" : [ "Cost Per Acquisition", "cpa" ],
-        "order_preference" : "acs",
-        "format" : "currency",
-        "formula" : "spend / purchases"
+        "key": "cpa",
+        "title": "CPA",
+        "type": "float",
+        "required": false,
+        "description": "Cost Per Acquisition",
+        "is_default": false,
+        "similar_dictionary": ["Cost Per Acquisition", "cpa"],
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": "spend / purchases"
     },
     {
-        "key" : "cpc",
-        "title" : "CPC",
-        "type" : "float",
-        "required" : false,
-        "description" : "CPC is the cost per click, which is the amount you pay each time someone clicks on your ad.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "cpc",
+        "title": "CPC",
+        "type": "float",
+        "required": false,
+        "description": "CPC is the cost per click, which is the amount you pay each time someone clicks on your ad.",
+        "is_default": true,
+        "similar_dictionary": [
             "CPC (all) (USD)",
             "cpc",
             "cost per click",
@@ -198,18 +199,18 @@ let schema = [
             "click price",
             "cost per link click"
         ],
-        "order_preference" : "acs",
-        "format" : "currency",
-        "formula" : "spend / link_clicks"
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": "spend / link_clicks"
     },
     {
-        "key" : "cpm",
-        "title" : "CPM",
-        "type" : "float",
-        "required" : false,
-        "description" : "CPM is the cost per thousand impressions, indicating the amount spent per thousand times your ad is shown.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "cpm",
+        "title": "CPM",
+        "type": "float",
+        "required": false,
+        "description": "CPM is the cost per thousand impressions, indicating the amount spent per thousand times your ad is shown.",
+        "is_default": true,
+        "similar_dictionary": [
             "CPM (cost per 1,000 impressions) (USD)",
             "cpm",
             "cost per mille",
@@ -217,31 +218,31 @@ let schema = [
             "impression cost",
             "cost per mille impressions"
         ],
-        "order_preference" : "acs",
-        "format" : "currency",
-        "formula" : "(spend / impressions) * 1000"
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": "(spend / impressions) * 1000"
     },
     {
-        "key" : "ctr",
-        "title" : "CTR",
-        "type" : "float",
-        "required" : false,
-        "description" : "CTR is the number of clicks that your ad receives divided by the number of times your ad is shown: clicks ÷ impressions = CTR",
-        "is_default" : true,
-        "similar_dictionary" : [ "CTR", "Ctr", "Clickthrough rate", "Clickthrough_rate" ],
-        "order_preference" : "decs",
-        "format" : "percent",
-        "formula" : "link_clicks / impressions"
+        "key": "ctr",
+        "title": "CTR",
+        "type": "float",
+        "required": false,
+        "description": "CTR is the number of clicks that your ad receives divided by the number of times your ad is shown: clicks ÷ impressions = CTR",
+        "is_default": true,
+        "similar_dictionary": ["CTR", "Ctr", "Clickthrough rate", "Clickthrough_rate"],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "link_clicks / impressions"
     },
 
     {
-        "key" : "hold",
-        "title" : "Hold",
-        "type" : "float",
-        "required" : false,
-        "description" : "Ratio of 15-second video views to impressions",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "hold",
+        "title": "Hold",
+        "type": "float",
+        "required": false,
+        "description": "Ratio of 15-second video views to impressions",
+        "is_default": true,
+        "similar_dictionary": [
             "Hold",
             "%hold",
             "hold%",
@@ -250,30 +251,30 @@ let schema = [
             "pause",
             "stopped"
         ],
-        "order_preference" : "decs",
-        "format" : "percent",
-        "formula" : "video_views_15s / impressions"
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "video_views_15s / impressions"
     },
     {
-        "key" : "impressions",
-        "title" : "Impressions",
-        "type" : "integer",
-        "required" : false,
-        "description" : "Impressions are the number of times your ad is shown.",
-        "is_default" : true,
-        "similar_dictionary" : [ "Impressions", "ad impressions", "total impressions", "views", "impression count" ],
-        "order_preference" : "decs",
-        "format" : "number",
-        "formula" : "N/A"
+        "key": "impressions",
+        "title": "Impressions",
+        "type": "integer",
+        "required": false,
+        "description": "Impressions are the number of times your ad is shown.",
+        "is_default": true,
+        "similar_dictionary": ["Impressions", "ad impressions", "total impressions", "views", "impression count"],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
     },
     {
-        "key" : "roas",
-        "title" : "ROAS",
-        "type" : "float",
-        "required" : false,
-        "description" : "ROAS is the return on ad spend, measuring the revenue generated for every dollar spent on advertising.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "roas",
+        "title": "ROAS",
+        "type": "float",
+        "required": false,
+        "description": "ROAS is the return on ad spend, measuring the revenue generated for every dollar spent on advertising.",
+        "is_default": true,
+        "similar_dictionary": [
             "Purchase ROAS (return on ad spend)",
             "roas",
             "return on ad spend",
@@ -281,30 +282,30 @@ let schema = [
             "ad ROI",
             "revenue on ad spend"
         ],
-        "order_preference" : "decs",
-        "format" : "number",
-        "formula" : "revenue / spend"
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "revenue / spend"
     },
     {
-        "key" : "lead",
-        "title" : "LEADS",
-        "type" : "integer",
-        "required" : false,
-        "description" : "Number of leads generated",
-        "is_default" : true,
-        "similar_dictionary" : [ "Leads" ],
-        "order_preference" : "asc",
-        "format" : "number",
-        "formula" : "N/A"
+        "key": "lead",
+        "title": "LEADS",
+        "type": "integer",
+        "required": false,
+        "description": "Number of leads generated",
+        "is_default": true,
+        "similar_dictionary": ["Leads"],
+        "order_preference": "asc",
+        "format": "number",
+        "formula": "N/A"
     },
     {
-        "key" : "purchases",
-        "title" : "Purchases",
-        "type" : "integer",
-        "required" : false,
-        "description" : "Purchases indicate the total number of transactions or sales generated from your ad.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "purchases",
+        "title": "Purchases",
+        "type": "integer",
+        "required": false,
+        "description": "Purchases indicate the total number of transactions or sales generated from your ad.",
+        "is_default": true,
+        "similar_dictionary": [
             "Purchases",
             "purchase count",
             "number of purchases",
@@ -312,18 +313,18 @@ let schema = [
             "sales",
             "transactions"
         ],
-        "order_preference" : "decs",
-        "format" : "number",
-        "formula" : "N/A"
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
     },
     {
-        "key" : "revenue",
-        "title" : "Revenue",
-        "type" : "float",
-        "required" : false,
-        "description" : "Revenue is the total amount of income generated from sales or services before any expenses are deducted.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "revenue",
+        "title": "Revenue",
+        "type": "float",
+        "required": false,
+        "description": "Revenue is the total amount of income generated from sales or services before any expenses are deducted.",
+        "is_default": true,
+        "similar_dictionary": [
             "total revenue",
             "income",
             "sales revenue",
@@ -331,18 +332,18 @@ let schema = [
             "revenue (USD)",
             "earnings"
         ],
-        "order_preference" : "decs",
-        "format" : "currency",
-        "formula" : "N/A"
+        "order_preference": "decs",
+        "format": "currency",
+        "formula": "N/A"
     },
     {
-        "key" : "vvr",
-        "title" : "VVR",
-        "type" : "float",
-        "required" : false,
-        "description" : "Video View Rate (VVR) is the percentage of people who viewed your video ad after it was served.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "vvr",
+        "title": "VVR",
+        "type": "float",
+        "required": false,
+        "description": "Video View Rate (VVR) is the percentage of people who viewed your video ad after it was served.",
+        "is_default": true,
+        "similar_dictionary": [
             "vvr",
             "vvr%",
             "%vvr",
@@ -352,18 +353,18 @@ let schema = [
             "watch rate",
             "play rate"
         ],
-        "order_preference" : "decs",
-        "format" : "percent",
-        "formula" : "video_views_3s / impressions"
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "video_views_3s / impressions"
     },
     {
-        "key" : "video_views_15s",
-        "title" : "Video Views (15s)",
-        "type" : "integer",
-        "required" : false,
-        "description" : "Video views (15s) represent the number of times a video has been watched for at least 15 seconds.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "video_views_15s",
+        "title": "Video Views (15s)",
+        "type": "integer",
+        "required": false,
+        "description": "Video views (15s) represent the number of times a video has been watched for at least 15 seconds.",
+        "is_default": true,
+        "similar_dictionary": [
             "Video Views (15s)",
             "video_views_15s",
             "15-second views",
@@ -373,18 +374,18 @@ let schema = [
             "watch count 15s",
             "view count 15s"
         ],
-        "order_preference" : "decs",
-        "format" : "number",
-        "formula" : "N/A"
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
     },
     {
-        "key" : "video_views_3s",
-        "title" : "Video Views (3s)",
-        "type" : "integer",
-        "required" : false,
-        "description" : "Video views (3s) represent the number of times a video has been watched for at least 3 seconds.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "video_views_3s",
+        "title": "Video Views (3s)",
+        "type": "integer",
+        "required": false,
+        "description": "Video views (3s) represent the number of times a video has been watched for at least 3 seconds.",
+        "is_default": true,
+        "similar_dictionary": [
             "video_views_3s",
             "Video Views (3s)",
             "video impressions 3s",
@@ -395,18 +396,18 @@ let schema = [
             "watch count",
             "view count"
         ],
-        "order_preference" : "decs",
-        "format" : "number",
-        "formula" : "N/A"
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
     },
     {
-        "key" : "link_clicks",
-        "title" : "Link Clicks",
-        "type" : "integer",
-        "required" : false,
-        "description" : "The total number of clicks on the link within your ad.",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "link_clicks",
+        "title": "Link Clicks",
+        "type": "integer",
+        "required": false,
+        "description": "The total number of clicks on the link within your ad.",
+        "is_default": true,
+        "similar_dictionary": [
             "Link Clicks",
             "link clicks",
             "clicks on link",
@@ -414,18 +415,18 @@ let schema = [
             "URL clicks",
             "link taps"
         ],
-        "order_preference" : "decs",
-        "format" : "number",
-        "formula" : "N/A"
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
     },
     {
-        "key" : "cpl",
-        "title" : "CPL",
-        "type" : "float",
-        "required" : false,
-        "description" : "Cost Per Lead",
-        "is_default" : true,
-        "similar_dictionary" : [
+        "key": "cpl",
+        "title": "CPL",
+        "type": "float",
+        "required": false,
+        "description": "Cost Per Lead",
+        "is_default": true,
+        "similar_dictionary": [
             "Cost Per Lead",
             "Cost per lead",
             "cost per lead",
@@ -438,21 +439,21 @@ let schema = [
             "Cpql",
             "cpql"
         ],
-        "order_preference" : "acs",
-        "format" : "currency",
-        "formula" : "spend / lead"
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": "spend / lead"
     },
     {
-        "key" : "video_avg_time_watched",
-        "is_default" : true,
-        "title" : "Video Average Time Watched",
-        "description" : "",
-        "required" : false,
-        "type" : "integer",
-        "similar_dictionary" : [ "video_avg_time_watched", "Video Average Time Watched", "Average Time", "Video Average" ],
-        "order_preference" : "decs",
-        "format" : "number",
-        "formula" : "N/A"
+        "key": "video_avg_time_watched",
+        "is_default": true,
+        "title": "Video Average Time Watched",
+        "description": "",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": ["video_avg_time_watched", "Video Average Time Watched", "Average Time", "Video Average"],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
     }
 ]
 
@@ -465,7 +466,7 @@ const STATIC_TOKEN = 'KV5NfjBPaN9JDWqbDXrjQGoyeMtQWyfG16nTHmUPXFw='; // Replace 
 const authenticate = (req, res, next) => {
     const authToken = req.headers['authorization'];
     if (!authToken || authToken !== STATIC_TOKEN) {
-        return res.status(401).send({ success: false, message: 'Unauthorized' });
+        return res.status(401).send({success: false, message: 'Unauthorized'});
     }
     next();
 };
@@ -487,15 +488,17 @@ async function connectToCollection(collectionName) {
         throw error;
     }
 }
+
 async function findDocuments(collectionName, query, projection = {}, sort = {}) {
     try {
         const collection = await connectToCollection(collectionName);
-        return await collection.find(query, { projection }).sort(sort).toArray();
+        return await collection.find(query, {projection}).sort(sort).toArray();
     } catch (error) {
         console.error("Error finding documents: ", error);
         throw error;
     }
 }
+
 async function insertMany(collectionName, documents) {
     try {
         const collection = await connectToCollection(collectionName);
@@ -505,6 +508,7 @@ async function insertMany(collectionName, documents) {
         throw error;
     }
 }
+
 async function findOneDocument(collectionName, query, projection = {}) {
     try {
         const collection = await connectToCollection(collectionName);
@@ -514,6 +518,7 @@ async function findOneDocument(collectionName, query, projection = {}) {
         throw error;
     }
 }
+
 async function aggregateDocuments(collectionName, pipeline) {
     try {
         const collection = await connectToCollection(collectionName);
@@ -523,7 +528,8 @@ async function aggregateDocuments(collectionName, pipeline) {
         throw error;
     }
 }
-async function updateOneDocument(collectionName, filter, update, options = { upsert: true }) {
+
+async function updateOneDocument(collectionName, filter, update, options = {upsert: true}) {
     try {
         const collection = await connectToCollection(collectionName);
         return await collection.updateOne(filter, update, options);
@@ -532,6 +538,7 @@ async function updateOneDocument(collectionName, filter, update, options = { ups
         throw error;
     }
 }
+
 async function updateManyDocuments(collectionName, filter, update) {
     try {
         const collection = await connectToCollection(collectionName);
@@ -541,6 +548,7 @@ async function updateManyDocuments(collectionName, filter, update) {
         throw error;
     }
 }
+
 async function insertOneDocument(collectionName, document) {
     try {
         const collection = await connectToCollection(collectionName);
@@ -550,6 +558,7 @@ async function insertOneDocument(collectionName, document) {
         throw error;
     }
 }
+
 async function findAndUpdate(collectionName, filter, update, options = {}) {
     try {
         const collection = await connectToCollection(collectionName);
@@ -559,10 +568,12 @@ async function findAndUpdate(collectionName, filter, update, options = {}) {
         throw error;
     }
 }
+
 function sendAlert(message) {
     console.log(`⚠️ ALERT: ${message}`);
 }
-async function sendHttpRequest({ url, method = 'GET', headers = {}, body = null, timeout = 180000 }) {
+
+async function sendHttpRequest({url, method = 'GET', headers = {}, body = null, timeout = 180000}) {
     const maxAttempts = 8; // Maximum retry attempts
     let attempt = 0;
 
@@ -633,7 +644,7 @@ function convertListsToDict(data) {
         if (Array.isArray(value)) {
             if (value.every(item => typeof item === 'object' && item !== null && 'action_type' in item && 'value' in item)) {
                 data[key] = value.reduce((acc, item) => {
-                    acc[item.action_type.replace(".","_")] = Array.isArray(item.value)
+                    acc[item.action_type.replace(".", "_")] = Array.isArray(item.value)
                         ? item.value
                         : parseFloat(item.value);
                     return acc;
@@ -665,7 +676,7 @@ function convertListsToDict(data) {
     return data;
 }
 
-const fetchAds = async (url,fbAccessToken) => {
+const fetchAds = async (url, fbAccessToken) => {
     try {
         return await sendHttpRequest({
             url,
@@ -681,7 +692,7 @@ const fetchAds = async (url,fbAccessToken) => {
         return null;
     }
 };
-const fetchBatchData = async (batchRequests,fbAccessToken) => {
+const fetchBatchData = async (batchRequests, fbAccessToken) => {
     try {
         return await sendHttpRequest({
             url: BASE_URL,
@@ -694,18 +705,18 @@ const fetchBatchData = async (batchRequests,fbAccessToken) => {
         });
     } catch
         (error) {
-        console.log(error.response,batchRequests)
+        console.log(error.response, batchRequests)
         console.error(`Error in batch request: ${error.response?.status}`);
         return null;
     }
 };
-const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) => {
+const getAdsInsights = async (accountId, fbAccessToken, start_date, end_date, uuid) => {
     const adsUrl = `${BASE_URL}/${accountId}/insights?level=ad&fields=ad_id&limit=50&action_breakdowns=action_type&time_range={"since":"${start_date}","until":"${end_date}"}`;
     let insights = [];
     let nextPage = adsUrl;
 
     while (nextPage) {
-        const adsResponse = await fetchAds(nextPage,fbAccessToken);
+        const adsResponse = await fetchAds(nextPage, fbAccessToken);
         if (!adsResponse) break;
 
         const adData = adsResponse?.data || [];
@@ -721,8 +732,8 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
             relative_url: `${adId}?fields=status,creative{id,name,video_id,object_id,product_data,product_set_id,object_story_id,effective_object_story_id,object_story_spec,object_store_url,object_type,thumbnail_id,destination_set_id,instagram_permalink_url,link_og_id,link_url,object_url},source_ad_id,name,preview_shareable_link`,
         }));
 
-        const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests,fbAccessToken)) || [];
-        const adDetailBatchResponse = (await fetchBatchData(adDetailBatchRequests,fbAccessToken)) || [];
+        const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests, fbAccessToken)) || [];
+        const adDetailBatchResponse = (await fetchBatchData(adDetailBatchRequests, fbAccessToken)) || [];
         const adDetailBatch = {};
         adDetailBatchResponse.forEach((item) => {
             if (item.body) {
@@ -751,8 +762,8 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
                     });
                 }
             });
-            await saveFacebookImportStatus(uuid,{
-                insights_count : insights.length
+            await saveFacebookImportStatus(uuid, {
+                insights_count: insights.length
             })
         }
 
@@ -761,7 +772,8 @@ const getAdsInsights = async (accountId,fbAccessToken,start_date,end_date,uuid) 
 
     return insights;
 };
-function convertToObject(data,ad_objective_field_expr,ad_objective_id) {
+
+function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
     const expr = ad_objective_field_expr.split(".")
     return data.map((item) => {
         const {
@@ -794,17 +806,17 @@ function convertToObject(data,ad_objective_field_expr,ad_objective_id) {
             hold: item.video_thruplay_watched_actions?.video_view / impressions || null,
             cpa: item.cost_per_action_type?.purchase || null,
             // cvr: item?.[expr[0]]?.[expr[1]] / item.actions?.link_click || null,
-            cvr: item.actions?.link_click? (item?.[expr[0]]?.[expr[1]] ? item[expr[0]][expr[1]]/item.actions?.link_click : 0) : null,
+            cvr: item.actions?.link_click ? (item?.[expr[0]]?.[expr[1]] ? item[expr[0]][expr[1]] / item.actions?.link_click : 0) : null,
             roas: item.purchase_roas?.omni_purchase || null,
             cpc: item.cost_per_action?.link_click || spend / item.actions?.link_click || null,
             cpl: item.cost_per_action?.lead || null,
             revenue: item.action_values?.purchase || null,
             video_view_3s: item.actions?.video_view || null,
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
-            video_avg_time_watched:item.video_avg_time_watched_actions?.video_view || null,
+            video_avg_time_watched: item.video_avg_time_watched_actions?.video_view || null,
             // [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
-            result :  item?.[expr[0]]?.[expr[1]],
-            cpr:  item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
+            result: item?.[expr[0]]?.[expr[1]],
+            cpr: item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
             post_url,
             ad_id,
             format,
@@ -815,6 +827,7 @@ function convertToObject(data,ad_objective_field_expr,ad_objective_id) {
         };
     });
 }
+
 function findNonEmptyKeys(array) {
     const keysWithValues = new Set();
     array.forEach(obj => {
@@ -826,6 +839,7 @@ function findNonEmptyKeys(array) {
     });
     return Array.from(keysWithValues);
 }
+
 function transformObjects(data) {
     return data.map(obj => ({
         [obj.key]: {
@@ -841,6 +855,7 @@ function transformObjects(data) {
         }
     }));
 }
+
 function jaroWinklerDistance(s1, s2) {
     let m = 0;
 
@@ -888,6 +903,7 @@ function jaroWinklerDistance(s1, s2) {
 
     return weight;
 }
+
 function findMostSimilarKey(item, array1) {
     let maxSimilarity = -1;
     let mostSimilarKey = null;
@@ -912,9 +928,11 @@ function findMostSimilarKey(item, array1) {
 
     return {key: mostSimilarKey, similarity: maxSimilarity};
 }
+
 function getPercentFields(arr) {
     return arr.filter(item => item.format === 'percent').map(item => item.key);
 }
+
 function parseFormula(formula) {
     const dependentFields = formula.match(/([a-zA-Z_]+)/g) || [];
     const formulaFunction = new Function(
@@ -926,7 +944,8 @@ function parseFormula(formula) {
         formulaFunction
     };
 }
-function calculateMetrics(inputValues,metrics) {
+
+function calculateMetrics(inputValues, metrics) {
     let calculatedValues = {...inputValues};
 
     const dependencies = {};
@@ -978,15 +997,18 @@ function calculateMetrics(inputValues,metrics) {
 
     return calculatedValues;
 }
+
 function cleanData(value, defaultValue = null) {
     if (!value || value === "") return defaultValue;
     return value.toString().replace(/[\$,%]/g, '');
 }
+
 function getFieldType(fieldKey) {
     const field = schema?.find(item => item.key === fieldKey);
     return field ? field.type : null;
 }
-function processRow(row,mappedColumns) {
+
+function processRow(row, mappedColumns) {
     const newRow = {};
     Object.keys(mappedColumns).forEach(dbColumn => {
         const Header = mappedColumns[dbColumn];
@@ -1016,10 +1038,11 @@ function processRow(row,mappedColumns) {
 
     return newRow;
 }
-function processData(Data,mappedColumns,metrics,agencyId,clientId,userId,import_list_inserted) {
+
+function processData(Data, mappedColumns, metrics, agencyId, clientId, userId, import_list_inserted) {
     return Data.map(row => {
-        let newRow = processRow(row,mappedColumns);
-        newRow = calculateMetrics(newRow,metrics);
+        let newRow = processRow(row, mappedColumns);
+        newRow = calculateMetrics(newRow, metrics);
         newRow.agency_id = agencyId;
         newRow.client_id = clientId;
         newRow.import_list_id = import_list_inserted.insertedId;
@@ -1032,7 +1055,9 @@ function processData(Data,mappedColumns,metrics,agencyId,clientId,userId,import_
         return newRow;
     });
 }
+
 const capitalizeFirstChar = str => str ? str[0].toUpperCase() + str.slice(1).toLowerCase() : "";
+
 function NormalizeNumberObjects(dataArray, keysToCheck) {
     dataArray.forEach(obj => {
         keysToCheck.forEach(key => {
@@ -1047,6 +1072,7 @@ function NormalizeNumberObjects(dataArray, keysToCheck) {
     });
     return dataArray;
 }
+
 function detectAndNormalizePercentageInObjects(dataArray, keysToCheck) {
     // Determine if each key requires normalization
     const normalizationRequired = {};
@@ -1086,9 +1112,10 @@ function detectAndNormalizePercentageInObjects(dataArray, keysToCheck) {
 
     return dataArray;
 }
+
 async function saveFacebookImportStatus(uuid, updateValues) {
     const collectionName = 'facebook_imports';
-    const filter = { uuid };
+    const filter = {uuid};
     updateValues.updatedAt = new Date()
     const update = {
         $set: updateValues
@@ -1101,6 +1128,7 @@ async function saveFacebookImportStatus(uuid, updateValues) {
         console.error("Failed to save Facebook import status:", error);
     }
 }
+
 async function getFbAdPreview(adId, fbGraphToken) {
     const url = `${BASE_URL}/${adId}/previews?ad_format=MOBILE_FEED_STANDARD`;
     const headers = {
@@ -1109,7 +1137,7 @@ async function getFbAdPreview(adId, fbGraphToken) {
     };
 
     try {
-        const response = await axios.get(url, { headers });
+        const response = await axios.get(url, {headers});
         const preview = response.data;
         if (preview && preview.data && preview.data.length > 0) {
             const body = preview.data[0].body || "";
@@ -1142,9 +1170,9 @@ async function getSource(url, post = null) {
     try {
         let response;
         if (post) {
-            response = await axios.post(url, post, { headers });
+            response = await axios.post(url, post, {headers});
         } else {
-            response = await axios.get(url, { headers });
+            response = await axios.get(url, {headers});
         }
         return response.data;
     } catch (error) {
@@ -1152,6 +1180,7 @@ async function getSource(url, post = null) {
         return null;
     }
 }
+
 function extractAndDecode(linkUrl) {
     const prefix = "https://l.facebook.com/l.php?u=";
     if (linkUrl) {
@@ -1167,13 +1196,25 @@ function extractAndDecode(linkUrl) {
     }
     return linkUrl;
 }
+
 function removeUTM(url) {
     try {
         let urlObj = new URL(url);
+        // Force the protocol to be HTTPS
+        urlObj.protocol = 'https:';
         let params = new URLSearchParams(urlObj.search);
-
         // List of UTM parameters to remove
-        const utmParams = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+        const utmParams = ['ad_id', 'utm_term', 'fb_campaign_id', 'hsa_grp', 'hsa_ad', 'utm_medium',
+            'utm_source', 'utm_placement', 'msclkid', 'campaign_id', 'utm_campaign_group', 'placement',
+            'utm_marpipe_id', 'utm_social-type', 'tw_adid', 'utm_variant', 'utm_fbid', 'utm_campaign_id',
+            'hsa_mt', 'device', 'twclid', 'utm_device', 'gclid', 'utm_ad_id', 'hsa_net', 'hsa_src', 'utm_location',
+            'tw_source', 'utm_adset', 'utm_test', 'campaignid', 'utm_platform', 'hsa_cam', 'fb_ad_id', 'yclid',
+            'utm_camp_id', 'fbclid', 'utm_adset_id', 'utm_campaign', 'fb_action_types', 'utm_referrer',
+            'utm_source_platform', 'utm_content_id', 'fb_action_ids', 'fb_ref', 'fbadid', 'st-t', 'hsa_tgt',
+            'utm_creative_id', 'utm_feed', 'utm_creative', 'hsa_acc', 'dclid', 'utm_ad', 'hsa_kw', 'hsa_ver',
+            'ttclid', 'utm_content_type', 'utm_social', 'utm_creative_format', 'fb_source', 'fb_page_id',
+            'fb_adgroup_id', 'utm_content', 'adgroupid']
+        ;
 
         utmParams.forEach(param => params.delete(param));
 
@@ -1211,12 +1252,12 @@ async function getPropsOfSource(url) {
             };
         }
     }
-    return { message: "", product_link: "",product_url:null, preview_data: {} };
+    return {message: "", product_link: "", product_url: null, preview_data: {}};
 }
 
 async function updateMessagesAndLinks(clientId) {
     // Retrieve the client document using the provided clientId.
-    const client = await findOneDocument("clients", { _id: clientId });
+    const client = await findOneDocument("clients", {_id: clientId});
     const accessToken = client.fb_config?.access_token || {};
 
     // Find assets where ad_id exists and both message and product_link in fb_data do not exist.
@@ -1224,11 +1265,11 @@ async function updateMessagesAndLinks(clientId) {
         "assets",
         {
             client_id: clientId,
-            ad_id: { $exists: true },
-            "meta_data.fb_data.message": { $exists: false },
-            "meta_data.fb_data.product_link": { $exists: false },
+            ad_id: {$exists: true},
+            "meta_data.fb_data.message": {$exists: false},
+            "meta_data.fb_data.product_link": {$exists: false},
         },
-        { _id: 1, ad_id: 1 }
+        {_id: 1, ad_id: 1}
     );
 
     for (const asset of assets) {
@@ -1239,7 +1280,7 @@ async function updateMessagesAndLinks(clientId) {
         // Update the asset document with the fetched message, product_link, and preview_data.
         await updateOneDocument(
             "assets",
-            { _id: new ObjectId(asset._id) },
+            {_id: new ObjectId(asset._id)},
             {
                 $set: {
                     "meta_data.fb_data": {
@@ -1272,28 +1313,28 @@ async function mainTask(params) {
     try {
         console.log("start ....", params)
         schema.push({
-            "key" : "cpr",
-            "title" : "CPR",
-            "type" : "float",
-            "required" : false,
-            "description" : "CPR is the cost per Result.",
-            "is_default" : true,
-            "similar_dictionary" : [
+            "key": "cpr",
+            "title": "CPR",
+            "type": "float",
+            "required": false,
+            "description": "CPR is the cost per Result.",
+            "is_default": true,
+            "similar_dictionary": [
                 "cpr",
                 "cost per result",],
-            "order_preference" : "acs",
-            "format" : "currency",
-            "formula" : `spend / result`
+            "order_preference": "acs",
+            "format": "currency",
+            "formula": `spend / result`
             // "formula" : `(spend / ${ad_objective_id})`
         })
-        schema.push(    {
-            "key" : "cvr",
-            "title" : "CVR",
-            "type" : "float",
-            "required" : false,
-            "description" : "CVR is the conversion rate, which is the percentage of users who completed a desired action after clicking on your ad.",
-            "is_default" : true,
-            "similar_dictionary" : [
+        schema.push({
+            "key": "cvr",
+            "title": "CVR",
+            "type": "float",
+            "required": false,
+            "description": "CVR is the conversion rate, which is the percentage of users who completed a desired action after clicking on your ad.",
+            "is_default": true,
+            "similar_dictionary": [
                 "Conversion Rate",
                 "cvr",
                 "conv rate",
@@ -1301,21 +1342,21 @@ async function mainTask(params) {
                 "action rate",
                 "goal rate"
             ],
-            "order_preference" : "decs",
-            "format" : "percent",
-            "formula" : "result / link_clicks"
+            "order_preference": "decs",
+            "format": "percent",
+            "formula": "result / link_clicks"
         },)
         schema.push({
-            "key" : "result",
-            "second_key":ad_objective_id,
-            "title" : ad_objective_id?.toUpperCase().replaceAll("_"," "),
-            "type" : "float",
-            "required" : false,
-            "description" : "Result.",
-            "is_default" : true,
-            "order_preference" : "decs",
-            "format" : "number",
-            "formula" : "N/A"
+            "key": "result",
+            "second_key": ad_objective_id,
+            "title": ad_objective_id?.toUpperCase().replaceAll("_", " "),
+            "type": "float",
+            "required": false,
+            "description": "Result.",
+            "is_default": true,
+            "order_preference": "decs",
+            "format": "number",
+            "formula": "N/A"
         })
         // schema.push({
         //     "key" : ad_objective_id,
@@ -1331,15 +1372,15 @@ async function mainTask(params) {
         agencyId = new ObjectId(agencyId);
         clientId = new ObjectId(clientId);
         userId = new ObjectId(userId);
-        await saveFacebookImportStatus(uuid,{
+        await saveFacebookImportStatus(uuid, {
             start_date,
             end_date,
-            agency_id:agencyId,
-            client_id:clientId,
-            user_id:userId,
-            fb_ad_account_id:FBadAccountId,
-            import_list_name:importListName,
-            status:"loading",
+            agency_id: agencyId,
+            client_id: clientId,
+            user_id: userId,
+            fb_ad_account_id: FBadAccountId,
+            import_list_name: importListName,
+            status: "loading",
             createdAt: new Date()
         })
         const metrics = await findDocuments("import_schema", {
@@ -1381,8 +1422,8 @@ async function mainTask(params) {
             }
         ]))[0];
         console.log("Getting ads ... ")
-        const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date,uuid)
-        const ads = convertToObject(results, ad_objective_field_expr,ad_objective_id)
+        const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
+        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id)
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url",].includes(item));
         const tableColumns = transformObjects(schema);
@@ -1462,21 +1503,21 @@ async function mainTask(params) {
         ]);
         let asset_ids = AssetsIds[0] || {}
         for (const entry of validatedRecords) {
-              const creative = entry.other_fields ? entry.other_fields.creative : undefined;
-              let product_link = null;
-              let message = null;
+            const creative = entry.other_fields ? entry.other_fields.creative : undefined;
+            let product_link = null;
+            let message = null;
 
-              if (creative) {
+            if (creative) {
                 const objectStorySpec = creative.object_story_spec || {};
                 product_link =
-                  objectStorySpec.link_data?.link ||
-                  objectStorySpec.video_data?.call_to_action?.value?.link ||
-                  objectStorySpec.template_data?.link;
+                    objectStorySpec.link_data?.link ||
+                    objectStorySpec.video_data?.call_to_action?.value?.link ||
+                    objectStorySpec.template_data?.link;
                 message =
-                  objectStorySpec.link_data?.message ||
-                  objectStorySpec.video_data?.message ||
-                  objectStorySpec.template_data?.message;
-              }
+                    objectStorySpec.link_data?.message ||
+                    objectStorySpec.video_data?.message ||
+                    objectStorySpec.template_data?.message;
+            }
 
             if (asset_ids?.[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]) {
                 entry.asset_id = asset_ids[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]
@@ -1492,19 +1533,23 @@ async function mainTask(params) {
                     thumbnail_url: entry.thumbnail_url,
                     "meta_data.fb_data.creative": creative,
                 };
-                if (message) {  set_dict["meta_data.fb_data.message"] = message; }
+                if (message) {
+                    set_dict["meta_data.fb_data.message"] = message;
+                }
                 if (product_link) {
                     set_dict["meta_data.fb_data.product_link"] = product_link;
                     set_dict["meta_data.fb_data.product_url"] = removeUTM(product_link);
                 }
                 // remove this part of code when all asset updated
-                await updateOneDocument("assets", {_id:new ObjectId(entry.asset_id)},{$set:set_dict}
+                await updateOneDocument("assets", {_id: new ObjectId(entry.asset_id)}, {$set: set_dict}
                 )
             } else {
                 try {
-                    const fb_data = { creative };
+                    const fb_data = {creative};
                     entry.fb_data = fb_data;
-                    if (message) { fb_data.message = message;}
+                    if (message) {
+                        fb_data.message = message;
+                    }
                     if (product_link) {
                         fb_data.product_link = product_link;
                         fb_data.product_url = removeUTM(product_link);
@@ -1530,8 +1575,8 @@ async function mainTask(params) {
             entry.createdAt = new Date();
         }
         if (!validatedRecords || validatedRecords.length === 0) {
-            await saveFacebookImportStatus(uuid,{
-                status:"is_empty"
+            await saveFacebookImportStatus(uuid, {
+                status: "is_empty"
             })
             return {
                 statusCode: 200,
@@ -1584,35 +1629,35 @@ async function mainTask(params) {
             })
         }
         await updateMessagesAndLinks(clientId)
-        await saveFacebookImportStatus(uuid,{
-            status:"success"
+        await saveFacebookImportStatus(uuid, {
+            status: "success"
         })
         return {
             statusCode: 200,
             body: JSON.stringify({message: "Data imported successfully", data: insertedItems}),
         };
-    }
-    catch (error){
+    } catch (error) {
         console.error("An error occurred:", error);
-        await saveFacebookImportStatus(uuid,{
-            status:"failed",
+        await saveFacebookImportStatus(uuid, {
+            status: "failed",
             error: JSON.stringify(error)
         })
         // Re-throw the error to propagate it further
         throw error;
     }
 }
+
 // Endpoint to trigger the task
 app.post('/run-task', authenticate, (req, res) => {
     const params = req.body;
 
     // Validate incoming parameters
     if (!params.start_date || !params.end_date || !params.fbAccessToken || !params.FBadAccountId) {
-        return res.status(400).send({ success: false, message: 'Missing required parameters' });
+        return res.status(400).send({success: false, message: 'Missing required parameters'});
     }
 
     // Acknowledge request
-    res.status(200).send({ success: true, message: 'Task has been queued for processing' });
+    res.status(200).send({success: true, message: 'Task has been queued for processing'});
 
     // Run the task in the background
     runInBackground(mainTask, params);
