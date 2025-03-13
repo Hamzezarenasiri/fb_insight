@@ -1778,10 +1778,6 @@ async function mainTask(params) {
         await saveFacebookImportStatus(uuid, {
             status: "success"
         })
-        return {
-            statusCode: 200,
-            body: JSON.stringify({message: "Data imported successfully", data: insertedItems}),
-        };
     } catch (error) {
         console.error("An error occurred:", error);
         await saveFacebookImportStatus(uuid, {
