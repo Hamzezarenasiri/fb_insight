@@ -1401,28 +1401,47 @@ async function generateProduct(clientId, agencyId) {
 
 // Execute and print the final results
     const funnels = await extractAllProductDetails()
+    let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
+    if (default_tags.length === 0 ) {
+        default_tags = await findDocuments("tags",{is_default:true,client_id:"global", agency_id : "global"},{_id:0});
+        default_tags.forEach(tag => {
+            tag.client_id = clientId;
+            tag.agency_id = agencyId
+        });
+        const inserted_tags = await insertMany("tags",default_tags);
+
+    }
+    let jackpot = await aggregateDocuments("tags",[
+        {$match:{client_id:clientId}},
+        {
+            $group: {
+                _id: "$category",
+                ids: { $push: "$_id" }
+            }
+        },
+        // Convert each grouped document into a key/value pair.
+        {
+            $project: {
+                _id: 0,
+                k: "$_id",
+                v: "$ids"
+            }
+        },
+        // Merge all key/value pairs into a single document.
+        {
+            $group: {
+                _id: null,
+                categories: { $push: { k: "$k", v: "$v" } }
+            }
+        },
+        // Replace the root with the new document formed from the key/value pairs.
+        {
+            $replaceRoot: { newRoot: { $arrayToObject: "$categories" } }
+        },
+    ]);
+
     for (let i = 0; i < funnels.length; i++) {
         const funnel = funnels[i]
-        let transformedFunnel = {
-            // client_id: clientId,
-            // agency_id: agencyId,
-            // funnel_name: funnel.funnel_name,
-            created_at: new Date(),
-            funnel_form_data: {
-                landing_url: funnel.landing_url,
-                funnel_name: funnel.funnel_name,
-                funnel_description: funnel.funnel_description
-            },
-            // jackpot: {
-            //     ertb: [],
-            //     lrtb: [],
-            //     style: [],
-            //     hook: [],
-            //     avatar: []
-            // },
-            landing_url: funnel.landing_url,
-            funnel_description: funnel.funnel_description
-        }
         await updateOneDocument("products",
             {
                 funnel_name: funnel.funnel_name,
@@ -1430,7 +1449,17 @@ async function generateProduct(clientId, agencyId) {
                 agency_id: agencyId,
 
             }, {
-                $setOnInsert: transformedFunnel
+                $setOnInsert: {
+                    created_at: new Date(),
+                    funnel_form_data: {
+                        landing_url: funnel.landing_url,
+                        funnel_name: funnel.funnel_name,
+                        funnel_description: funnel.funnel_description
+                    },
+                    jackpot: jackpot[0],
+                    landing_url: funnel.landing_url,
+                    funnel_description: funnel.funnel_description
+                }
             }, {upsert: true});
         await updateManyDocuments("assets", {
             "client_id": clientId,
@@ -1517,6 +1546,7 @@ async function mainTask(params) {
         agencyId = new ObjectId(agencyId);
         clientId = new ObjectId(clientId);
         userId = new ObjectId(userId);
+        await generateProduct(clientId,agencyId)
         await saveFacebookImportStatus(uuid, {
             start_date,
             end_date,
