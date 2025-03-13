@@ -1362,7 +1362,7 @@ async function generateProduct(clientId, agencyId) {
                         content: `${prompt}\n\n${prompt_code_part}\n\nInput Data:\n${JSON.stringify(chunk, null, 2)}\n\n Show only json as the answer. `
                     }
                 ],
-                temperature: 0.5,
+                temperature: 0.6,
             },
             {
                 headers: {
@@ -1407,7 +1407,7 @@ async function generateProduct(clientId, agencyId) {
             // client_id: clientId,
             // agency_id: agencyId,
             // funnel_name: funnel.funnel_name,
-            created_at: new Date().toISOString(),
+            created_at: new Date(),
             funnel_form_data: {
                 landing_url: funnel.landing_url,
                 funnel_name: funnel.funnel_name,
