@@ -10,6 +10,8 @@ Sentry.init({
 dotenv.config();
 const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v21.0";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+
 const client = new MongoClient(uri);
 const dbName = 'FluxDB';
 const FIELDS = [
@@ -1295,6 +1297,149 @@ async function updateMessagesAndLinks(clientId) {
     }
 }
 
+async function generateProduct(clientId, agencyId) {
+    const assets_links = await aggregateDocuments("assets", [
+        {
+            $match: {
+                "client_id": clientId,
+                "meta_tags.offer": {$exists: false},
+                "meta_data.fb_data.product_url": {
+                    $exists: true,
+                    // "$ne": null,
+                    "$ne": ""
+                },
+            }
+        },
+        {
+            "$group": {
+                "_id": "$meta_data.fb_data.product_url",
+                "count": {"$sum": 1},
+            }
+        }, {$sort: {count: -1}}, {
+            "$project": {
+                url: "$_id", count: "$count", _id: 0,
+//   asset_ids:1
+
+            }
+        }
+    ])
+    // Your prompt instructing the extraction details
+    const prompt_setting = await findOneDocument("settings", {"key": "extractProductPrompt"})
+    const prompt = prompt_setting.promptTemplate;
+    const prompt_code_part = `Each product entry must include:
+     - \`funnel_name\`: The name of the product.
+     - \`funnel_description\`: A clear and concise one-line description that accurately defines the product's purpose or function.
+     - \`landing_url\`: The product’s URL.
+     Ensure that the output follows the exact JSON format below:
+        [
+          {
+            "funnel_name": "Product Name",
+            "funnel_description": "Brief and clear product description.",
+            "landing_url": "Product URL"
+          },
+          ...
+        ]`;
+
+// Function to split an array into chunks of a specified size
+    function chunkArray(array, size) {
+        const chunks = [];
+        for (let i = 0; i < array.length; i += size) {
+            chunks.push(array.slice(i, i + size));
+        }
+        return chunks;
+    }
+
+// Function to process one chunk of URLs
+    async function extractProductDetailsForChunk(chunk) {
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: "gpt-4o",
+                messages: [
+                    {role: "system", content: "You are a helpful assistant."},
+                    {
+                        role: "user",
+                        content: `${prompt}\n\n${prompt_code_part}\n\nInput Data:\n${JSON.stringify(chunk, null, 2)}\n\n Show only json as the answer. `
+                    }
+                ],
+                temperature: 0.5,
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                }
+            }
+        );
+        // The API should return the structured JSON as text.
+        let output = response.data.choices[0].message.content;
+        output = output.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+
+        // Remove trailing commas before closing braces or brackets and remove newlines
+        const contentFixed = output.replace(/,\s*([\}\]])/g, '$1').replace(/\n/g, '');
+
+        // Assuming the output is valid JSON
+        return JSON.parse(contentFixed);
+
+    }
+
+// Main function to process all chunks and accumulate the results
+    async function extractAllProductDetails() {
+        const chunkSize = 50;
+        const chunks = chunkArray(assets_links, chunkSize);
+        const allResults = [];
+
+        for (let i = 0; i < chunks.length; i++) {
+            console.log(`Processing chunk ${i + 1} of ${chunks.length}`);
+            const result = await extractProductDetailsForChunk(chunks[i]);
+            // Merge the current chunk's result into the overall array
+            allResults.push(...result);
+        }
+
+        return allResults;
+    }
+
+// Execute and print the final results
+    const funnels = await extractAllProductDetails()
+    for (let i = 0; i < funnels.length; i++) {
+        const funnel = funnels[i]
+        let transformedFunnel = {
+            // client_id: clientId,
+            // agency_id: agencyId,
+            // funnel_name: funnel.funnel_name,
+            created_at: new Date().toISOString(),
+            funnel_form_data: {
+                landing_url: funnel.landing_url,
+                funnel_name: funnel.funnel_name,
+                funnel_description: funnel.funnel_description
+            },
+            // jackpot: {
+            //     ertb: [],
+            //     lrtb: [],
+            //     style: [],
+            //     hook: [],
+            //     avatar: []
+            // },
+            landing_url: funnel.landing_url,
+            funnel_description: funnel.funnel_description
+        }
+        await updateOneDocument("products",
+            {
+                funnel_name: funnel.funnel_name,
+                client_id: clientId,
+                agency_id: agencyId,
+
+            }, {
+                $setOnInsert: transformedFunnel
+            }, {upsert: true});
+        await updateManyDocuments("assets", {
+            "client_id": clientId,
+            "meta_tags.offer": {$exists: false},
+            "meta_data.fb_data.product_url": funnel.landing_url
+        }, {"$set": {"meta_tags.offer": funnel.funnel_name}})
+    }
+}
+
 async function mainTask(params) {
     let {
         start_date,
@@ -1372,6 +1517,8 @@ async function mainTask(params) {
         agencyId = new ObjectId(agencyId);
         clientId = new ObjectId(clientId);
         userId = new ObjectId(userId);
+        await generateProduct(clientId, agencyId)
+
         await saveFacebookImportStatus(uuid, {
             start_date,
             end_date,
@@ -1629,6 +1776,7 @@ async function mainTask(params) {
             })
         }
         await updateMessagesAndLinks(clientId)
+        await generateProduct(clientId, agencyId)
         await saveFacebookImportStatus(uuid, {
             status: "success"
         })
@@ -1678,18 +1826,18 @@ app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-// console.log(await  mainTask(
-//     {
-//         fbAccessToken:"EAAIZAsmwy9VgBO5jZBI1UMh2v5DUwyl2M6nq3xRbCrN1Bg2KXDLO0nFpL1H2SivDBCv88HlwcpO1rJqCakQxJ0gSjgoa7v50pXsPtV4yZCZB2gdngaqyxBlusasgBRdC3Om0sUDN2AUCTOjZAZApRzpGjbSUmgBWAqE5siInyC7wrD8VCDycRUDtecAEwvLftHVGbHpk4iszsh3lUmlIFjv8LnYQuC4LYrKRYyJYe6C7Oh0UTLcIQQYQZDZD",
-//         FBadAccountId:"act_2177038889076275",
-//         start_date:"2025-02-09",
-//         end_date:"2025-02-10",
-//         agencyId:"6656208cdb5d669b53cc98c5",
-//         clientId:"66563830f3e130c7a1c005f9",
-//         userId:"66b03f924a9351d9433dca51",
-//         importListName:"Activation Products - Ease Magnesium-2Days",
-//         uuid:"82676d40-10d8-4175-a15d-597f2bd64da5",
-//         ad_objective_id:"landing_page_views",
-//         ad_objective_field_expr:"actions.landing_page_view"
-//     }
-// ))
+console.log(await mainTask(
+    {
+        fbAccessToken: "EAAIZAsmwy9VgBO5jZBI1UMh2v5DUwyl2M6nq3xRbCrN1Bg2KXDLO0nFpL1H2SivDBCv88HlwcpO1rJqCakQxJ0gSjgoa7v50pXsPtV4yZCZB2gdngaqyxBlusasgBRdC3Om0sUDN2AUCTOjZAZApRzpGjbSUmgBWAqE5siInyC7wrD8VCDycRUDtecAEwvLftHVGbHpk4iszsh3lUmlIFjv8LnYQuC4LYrKRYyJYe6C7Oh0UTLcIQQYQZDZD",
+        FBadAccountId: "act_2177038889076275",
+        start_date: "2025-02-09",
+        end_date: "2025-02-10",
+        agencyId: "6656208cdb5d669b53cc98c5",
+        clientId: "66563830f3e130c7a1c005f9",
+        userId: "66b03f924a9351d9433dca51",
+        importListName: "Activation Products - Ease Magnesium-2Days",
+        uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
+        ad_objective_id: "landing_page_views",
+        ad_objective_field_expr: "actions.landing_page_view"
+    }
+))
