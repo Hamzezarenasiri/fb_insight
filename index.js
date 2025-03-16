@@ -1354,7 +1354,7 @@ async function generateProduct(clientId, agencyId) {
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: "gpt-4o",
+                model: prompt_setting.model,
                 messages: [
                     {role: "system", content: "You are a helpful assistant."},
                     {
