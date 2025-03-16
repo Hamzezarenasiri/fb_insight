@@ -1362,7 +1362,7 @@ async function generateProduct(clientId, agencyId) {
                         content: `${prompt}\n\n${prompt_code_part}\n\nInput Data:\n${JSON.stringify(chunk, null, 2)}\n\n Show only json as the answer. `
                     }
                 ],
-                temperature: 0.6,
+                temperature: prompt_setting.temperature,
             },
             {
                 headers: {
