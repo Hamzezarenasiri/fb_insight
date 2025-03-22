@@ -1775,7 +1775,8 @@ async function mainTask(params) {
         }
         if (!validatedRecords || validatedRecords.length === 0) {
             await saveFacebookImportStatus(uuid, {
-                status: "is_empty"
+                status: "is_empty",
+                percentage:0
             })
             return {
                 statusCode: 200,
