@@ -1257,7 +1257,7 @@ async function getPropsOfSource(url) {
     return {message: "", product_link: "", product_url: null, preview_data: {}};
 }
 
-async function updateMessagesAndLinks(clientId) {
+async function updateMessagesAndLinks(uuid, clientId) {
     // Retrieve the client document using the provided clientId.
     const client = await findOneDocument("clients", {_id: clientId});
     const accessToken = client.fb_config?.access_token || {};
@@ -1273,7 +1273,11 @@ async function updateMessagesAndLinks(clientId) {
         },
         {_id: 1, ad_id: 1}
     );
-
+    let startProgress = 40;
+    const endProgress = 65;
+    const totalTasks = assets.length;
+    const progressIncrement = (endProgress - startProgress) / totalTasks;
+    let currentProgress = startProgress;
     for (const asset of assets) {
         // Retrieve the Facebook ad preview URL using the asset's ad_id.
         const url = await getFbAdPreview(asset.ad_id, accessToken);
@@ -1294,10 +1298,14 @@ async function updateMessagesAndLinks(clientId) {
                 },
             }
         );
+        currentProgress += progressIncrement;
+        await saveFacebookImportStatus(uuid, {
+            percentage:currentProgress
+        })
     }
 }
 
-async function generateProduct(clientId, agencyId) {
+async function generateProduct(uuid, clientId, agencyId) {
     const assets_links = await aggregateDocuments("assets", [
         {
             $match: {
@@ -1339,8 +1347,7 @@ async function generateProduct(clientId, agencyId) {
           },
           ...
         ]`;
-
-// Function to split an array into chunks of a specified size
+    // Function to split an array into chunks of a specified size
     function chunkArray(array, size) {
         const chunks = [];
         for (let i = 0; i < array.length; i += size) {
@@ -1348,8 +1355,7 @@ async function generateProduct(clientId, agencyId) {
         }
         return chunks;
     }
-
-// Function to process one chunk of URLs
+    // Function to process one chunk of URLs
     async function extractProductDetailsForChunk(chunk) {
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
@@ -1382,24 +1388,32 @@ async function generateProduct(clientId, agencyId) {
         return JSON.parse(contentFixed);
 
     }
-
-// Main function to process all chunks and accumulate the results
+    // Main function to process all chunks and accumulate the results
     async function extractAllProductDetails() {
         const chunkSize = 50;
         const chunks = chunkArray(assets_links, chunkSize);
         const allResults = [];
+        let startProgress = 65;
+        const endProgress = 89;
+        const totalTasks = chunks.length;
+        const progressIncrement = (endProgress - startProgress) / totalTasks;
+        let currentProgress = startProgress;
 
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Processing chunk ${i + 1} of ${chunks.length}`);
             const result = await extractProductDetailsForChunk(chunks[i]);
             // Merge the current chunk's result into the overall array
             allResults.push(...result);
+            currentProgress += progressIncrement;
+            await saveFacebookImportStatus(uuid, {
+                percentage:currentProgress
+            })
+
         }
 
         return allResults;
     }
-
-// Execute and print the final results
+    // Execute and print the final results
     const funnels = await extractAllProductDetails()
     let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
     if (default_tags.length === 0 ) {
@@ -1439,7 +1453,11 @@ async function generateProduct(clientId, agencyId) {
             $replaceRoot: { newRoot: { $arrayToObject: "$categories" } }
         },
     ]);
-
+    let startProgress = 90;
+    const endProgress = 99;
+    const totalTasks = funnels.length;
+    const progressIncrement = (endProgress - startProgress) / totalTasks;
+    let currentProgress = startProgress;
     for (let i = 0; i < funnels.length; i++) {
         const funnel = funnels[i]
         await updateOneDocument("products",
@@ -1466,7 +1484,13 @@ async function generateProduct(clientId, agencyId) {
             "meta_tags.offer": {$exists: false},
             "meta_data.fb_data.product_url": funnel.landing_url
         }, {"$set": {"meta_tags.offer": funnel.funnel_name}})
+        currentProgress += progressIncrement;
+        await saveFacebookImportStatus(uuid, {
+            percentage:currentProgress
+        })
+
     }
+
 }
 
 async function mainTask(params) {
@@ -1554,7 +1578,8 @@ async function mainTask(params) {
             user_id: userId,
             fb_ad_account_id: FBadAccountId,
             import_list_name: importListName,
-            status: "loading",
+            status: "Importing from Facebook",
+            percentage: -1,
             createdAt: new Date()
         })
         const metrics = await findDocuments("import_schema", {
@@ -1802,10 +1827,15 @@ async function mainTask(params) {
                 createdAt: new Date()
             })
         }
-        await updateMessagesAndLinks(clientId)
-        await generateProduct(clientId, agencyId)
         await saveFacebookImportStatus(uuid, {
-            status: "success"
+            status: "Analyzing imported data",
+            percentage:40
+        })
+        await updateMessagesAndLinks(uuid,clientId)
+        await generateProduct(uuid, clientId, agencyId)
+        await saveFacebookImportStatus(uuid, {
+            status: "success",
+            percentage:100
         })
     } catch (error) {
         console.error("An error occurred:", error);
@@ -1849,18 +1879,18 @@ app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-console.log(await mainTask(
-    {
-        fbAccessToken: "EAAIZAsmwy9VgBO5jZBI1UMh2v5DUwyl2M6nq3xRbCrN1Bg2KXDLO0nFpL1H2SivDBCv88HlwcpO1rJqCakQxJ0gSjgoa7v50pXsPtV4yZCZB2gdngaqyxBlusasgBRdC3Om0sUDN2AUCTOjZAZApRzpGjbSUmgBWAqE5siInyC7wrD8VCDycRUDtecAEwvLftHVGbHpk4iszsh3lUmlIFjv8LnYQuC4LYrKRYyJYe6C7Oh0UTLcIQQYQZDZD",
-        FBadAccountId: "act_2177038889076275",
-        start_date: "2025-02-09",
-        end_date: "2025-02-10",
-        agencyId: "6656208cdb5d669b53cc98c5",
-        clientId: "66563830f3e130c7a1c005f9",
-        userId: "66b03f924a9351d9433dca51",
-        importListName: "Activation Products - Ease Magnesium-2Days",
-        uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
-        ad_objective_id: "landing_page_views",
-        ad_objective_field_expr: "actions.landing_page_view"
-    }
-))
+// console.log(await mainTask(
+//     {
+//         fbAccessToken: "EAAIZAsmwy9VgBO5jZBI1UMh2v5DUwyl2M6nq3xRbCrN1Bg2KXDLO0nFpL1H2SivDBCv88HlwcpO1rJqCakQxJ0gSjgoa7v50pXsPtV4yZCZB2gdngaqyxBlusasgBRdC3Om0sUDN2AUCTOjZAZApRzpGjbSUmgBWAqE5siInyC7wrD8VCDycRUDtecAEwvLftHVGbHpk4iszsh3lUmlIFjv8LnYQuC4LYrKRYyJYe6C7Oh0UTLcIQQYQZDZD",
+//         FBadAccountId: "act_2177038889076275",
+//         start_date: "2025-02-09",
+//         end_date: "2025-02-10",
+//         agencyId: "6656208cdb5d669b53cc98c5",
+//         clientId: "66563830f3e130c7a1c005f9",
+//         userId: "66b03f924a9351d9433dca51",
+//         importListName: "Activation Products - Ease Magnesium-2Days",
+//         uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
+//         ad_objective_id: "landing_page_views",
+//         ad_objective_field_expr: "actions.landing_page_view"
+//     }
+// ))
