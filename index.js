@@ -1418,7 +1418,7 @@ async function generateProduct(uuid, clientId, agencyId) {
     const default_tags_categories = await findDocuments(
         "tags_categories",
         {client_id:"global", agency_id : "global"},
-        {_id:0,"client_id":clientId,"agency_id":agencyId}
+        {_id:0,"client_id":clientId,"agency_id":agencyId,category:1,description:1}
     );
     await insertMany("tags_categories", default_tags_categories);
     // let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
