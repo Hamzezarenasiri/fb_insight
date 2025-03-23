@@ -9,7 +9,7 @@ Sentry.init({
 });
 dotenv.config();
 const uri = process.env.mongodb_uri;
-const BASE_URL = "https://graph.facebook.com/v21.0";
+const BASE_URL = "https://graph.facebook.com/v22.0";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 
 const client = new MongoClient(uri);
@@ -1415,16 +1415,22 @@ async function generateProduct(uuid, clientId, agencyId) {
     }
     // Execute and print the final results
     const funnels = await extractAllProductDetails()
-    let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
-    if (default_tags.length === 0 ) {
-        default_tags = await findDocuments("tags",{is_default:true,client_id:"global", agency_id : "global"},{_id:0});
-        default_tags.forEach(tag => {
-            tag.client_id = clientId;
-            tag.agency_id = agencyId
-        });
-        const inserted_tags = await insertMany("tags",default_tags);
-
-    }
+    const default_tags_categories = await findDocuments(
+        "tags_categories",
+        {client_id:"global", agency_id : "global"},
+        {_id:0,"client_id":clientId,"agency_id":agencyId}
+    );
+    await insertMany("tags_categories", default_tags_categories);
+    // let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
+    // if (default_tags.length === 0 ) {
+    //     default_tags = await findDocuments("tags",{is_default:true,client_id:"global", agency_id : "global"},{_id:0});
+    //     default_tags.forEach(tag => {
+    //         tag.client_id = clientId;
+    //         tag.agency_id = agencyId
+    //     });
+    //     const inserted_tags = await insertMany("tags",default_tags);
+    //
+    // }
     let jackpot = await aggregateDocuments("tags",[
         {$match:{client_id:clientId}},
         {
