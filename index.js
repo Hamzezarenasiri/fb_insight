@@ -1273,8 +1273,8 @@ async function updateMessagesAndLinks(uuid, clientId) {
         },
         {_id: 1, ad_id: 1}
     );
-    let startProgress = 40;
-    const endProgress = 65;
+    let startProgress = 30;
+    const endProgress = 70;
     const totalTasks = assets.length;
     const progressIncrement = (endProgress - startProgress) / totalTasks;
     let currentProgress = startProgress;
@@ -1393,7 +1393,7 @@ async function generateProduct(uuid, clientId, agencyId) {
         const chunkSize = 50;
         const chunks = chunkArray(assets_links, chunkSize);
         const allResults = [];
-        let startProgress = 65;
+        let startProgress = 70;
         const endProgress = 89;
         const totalTasks = chunks.length;
         const progressIncrement = (endProgress - startProgress) / totalTasks;
@@ -1839,7 +1839,7 @@ async function mainTask(params) {
         }
         await saveFacebookImportStatus(uuid, {
             status: "Analyzing imported data",
-            percentage:40
+            percentage:30
         })
         await updateMessagesAndLinks(uuid,clientId)
         await generateProduct(uuid, clientId, agencyId)
