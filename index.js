@@ -1462,7 +1462,6 @@ async function generateProduct(uuid, clientId, agencyId) {
             $replaceRoot: { newRoot: { $arrayToObject: "$categories" } }
         },
     ]);
-    jackpot = jackpot || {}
     let startProgress = 90;
     const endProgress = 99;
     const totalTasks = funnels.length;
@@ -1484,7 +1483,7 @@ async function generateProduct(uuid, clientId, agencyId) {
                         funnel_name: funnel.funnel_name,
                         funnel_description: funnel.funnel_description
                     },
-                    jackpot: jackpot[0],
+                    jackpot: jackpot[0] || {},
                     landing_url: funnel.landing_url,
                     funnel_description: funnel.funnel_description
                 }
