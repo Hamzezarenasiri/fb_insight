@@ -1415,11 +1415,13 @@ async function generateProduct(uuid, clientId, agencyId) {
     }
     // Execute and print the final results
     const funnels = await extractAllProductDetails()
+    let default_tags_categories = await findDocuments("tags_categories",{client_id:clientId})
+    if (default_tags_categories.length === 0 ) {
     const default_tags_categories = await findDocuments(
         "tags_categories",
         {client_id:"global", agency_id : "global"},
         {_id:0,"client_id":clientId,"agency_id":agencyId,category:1,description:1}
-    );
+    );}
     await insertMany("tags_categories", default_tags_categories);
     // let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
     // if (default_tags.length === 0 ) {
