@@ -1462,6 +1462,7 @@ async function generateProduct(uuid, clientId, agencyId) {
             $replaceRoot: { newRoot: { $arrayToObject: "$categories" } }
         },
     ]);
+    jackpot = jackpot || {}
     let startProgress = 90;
     const endProgress = 99;
     const totalTasks = funnels.length;
