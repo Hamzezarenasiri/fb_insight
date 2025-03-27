@@ -1496,7 +1496,8 @@ async function generateProduct(uuid, clientId, agencyId) {
             agency_id:agencyId
         }, {$set: {
                 description: funnel.funnel_description,
-            }},{upsert: true})
+            },$setOnInsert: {created_at: new Date(),created_by:"AI"}
+            },{upsert: true})
         await updateManyDocuments("assets", {
             "client_id": clientId,
             "meta_tags.offer": {$exists: false},
