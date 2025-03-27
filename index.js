@@ -1469,9 +1469,10 @@ async function generateProduct(uuid, clientId, agencyId) {
     let currentProgress = startProgress;
     for (let i = 0; i < funnels.length; i++) {
         const funnel = funnels[i]
+        const funnelName = funnel.funnel_name.toLowerCase();
         await updateOneDocument("products",
             {
-                funnel_name: funnel.funnel_name,
+                funnel_name: funnelName,
                 client_id: clientId,
                 agency_id: agencyId,
 
@@ -1480,7 +1481,7 @@ async function generateProduct(uuid, clientId, agencyId) {
                     created_at: new Date(),
                     funnel_form_data: {
                         landing_url: funnel.landing_url,
-                        funnel_name: funnel.funnel_name,
+                        funnel_name: funnelName,
                         funnel_description: funnel.funnel_description
                     },
                     jackpot: jackpot[0] || {},
@@ -1488,11 +1489,19 @@ async function generateProduct(uuid, clientId, agencyId) {
                     funnel_description: funnel.funnel_description
                 }
             }, {upsert: true});
+        await updateOneDocument("tags",{
+            "tag":funnelName,
+            category:"offer",
+            client_id:clientId,
+            agency_id:agencyId
+        }, {$set: {
+                description: funnel.funnel_description,
+            }},{upsert: true})
         await updateManyDocuments("assets", {
             "client_id": clientId,
             "meta_tags.offer": {$exists: false},
             "meta_data.fb_data.product_url": funnel.landing_url
-        }, {"$set": {"meta_tags.offer": funnel.funnel_name}})
+        }, {"$set": {"meta_tags.offer": funnelName}})
         currentProgress += progressIncrement;
         await saveFacebookImportStatus(uuid, {
             percentage:currentProgress
