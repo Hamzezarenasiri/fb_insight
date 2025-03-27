@@ -1663,7 +1663,7 @@ async function mainTask(params) {
         }, {}, {"createdAt": -1}))?.[0]
         const last_sub_reports = last_imported_list ? await findDocuments("sub_reports", {
             import_list_id: last_imported_list._id
-        }) : []
+        },{html_note:0}) : []
         const importListDocument = {
             date_range: `from:${start_date}-to:${end_date}`,
             start_date: new Date(start_date),
