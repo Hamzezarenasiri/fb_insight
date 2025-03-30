@@ -1357,6 +1357,7 @@ async function generateProduct(uuid, clientId, agencyId) {
     }
     // Function to process one chunk of URLs
     async function extractProductDetailsForChunk(chunk) {
+        const contentPrompt = `${prompt}\n\n${prompt_code_part}\n\nInput Data:\n${JSON.stringify(chunk, null, 2)}\n\n Show only json as the answer. `;
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
@@ -1365,7 +1366,7 @@ async function generateProduct(uuid, clientId, agencyId) {
                     {role: "system", content: "You are a helpful assistant."},
                     {
                         role: "user",
-                        content: `${prompt}\n\n${prompt_code_part}\n\nInput Data:\n${JSON.stringify(chunk, null, 2)}\n\n Show only json as the answer. `
+                        content: contentPrompt
                     }
                 ],
                 temperature: prompt_setting.temperature,
@@ -1383,7 +1384,8 @@ async function generateProduct(uuid, clientId, agencyId) {
 
         // Remove trailing commas before closing braces or brackets and remove newlines
         const contentFixed = output.replace(/,\s*([\}\]])/g, '$1').replace(/\n/g, '');
-
+        console.log(contentPrompt,"<<<<<<<<<contentPrompt")
+        console.log(contentFixed,"<<<<<<<<<contentFixed")
         // Assuming the output is valid JSON
         return JSON.parse(contentFixed);
 
