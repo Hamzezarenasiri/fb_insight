@@ -11,8 +11,9 @@ dotenv.config();
 const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v22.0";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-
-const client = new MongoClient(uri);
+const client = new MongoClient(uri,{
+    family: 4  // Force IPv4
+});
 const dbName = 'FluxDB';
 const FIELDS = [
     "account_currency",
@@ -1306,11 +1307,30 @@ async function updateMessagesAndLinks(uuid, clientId) {
 }
 
 async function generateProduct(uuid, clientId, agencyId) {
+    let default_tags_categories = await findDocuments("tags_categories",{client_id:clientId})
+    if (default_tags_categories.length === 0 ) {
+        const default_tags_categories = await findDocuments(
+            "tags_categories",
+            {client_id:"global", agency_id : "global"},
+            {_id:0,"client_id":clientId,"agency_id":agencyId,category:1,description:1}
+        );
+        await insertMany("tags_categories", default_tags_categories);
+    }
+    // let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
+    // if (default_tags.length === 0 ) {
+    //     default_tags = await findDocuments("tags",{is_default:true,client_id:"global", agency_id : "global"},{_id:0});
+    //     default_tags.forEach(tag => {
+    //         tag.client_id = clientId;
+    //         tag.agency_id = agencyId
+    //     });
+    //     const inserted_tags = await insertMany("tags",default_tags);
+    //
+    // }
     const assets_links = await aggregateDocuments("assets", [
         {
             $match: {
                 "client_id": clientId,
-                "meta_tags.offer": {$exists: false},
+                // "meta_tags.offer": {$exists: false},
                 "meta_data.fb_data.product_url": {
                     $exists: true,
                     // "$ne": null,
@@ -1332,21 +1352,63 @@ async function generateProduct(uuid, clientId, agencyId) {
         }
     ])
     // Your prompt instructing the extraction details
+    // console.log(assets_links,"<<<<<assets_links");
     const prompt_setting = await findOneDocument("settings", {"key": "extractProductPrompt"})
     const prompt = prompt_setting.promptTemplate;
-    const prompt_code_part = `Each product entry must include:
-     - \`funnel_name\`: The name of the product.
-     - \`funnel_description\`: A clear and concise one-line description that accurately defines the product's purpose or function.
-     - \`landing_url\`: The product’s URL.
-     Ensure that the output follows the exact JSON format below:
+
+    const tags = await aggregateDocuments("tags", [
+        {"$match": {"client_id": clientId}},
+        {
+            "$group": {
+                "_id": {"category": "$category"},
+                "tags": {"$push": {"k": "$tag", "v": "$description"}},
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "category": "$_id.category",
+                "tags": {"$arrayToObject": "$tags"},
+            }
+        },
+        {
+            "$group": {
+                "_id": null,
+                "categories": {"$push": {"k": "$category", "v": "$tags"}},
+            }
+        },
+        {"$replaceRoot": {"newRoot": {"$arrayToObject": "$categories"}}},
+    ])
+    const categories = await aggregateDocuments(
+        "tags_categories",
         [
-          {
-            "funnel_name": "Product Name",
-            "funnel_description": "Brief and clear product description.",
-            "landing_url": "Product URL"
-          },
-          ...
-        ]`;
+            {"$match": {"client_id": clientId}},
+            {"$sort": {"_id": 1}},
+            {
+                "$group": {
+                    "_id": null,
+                    "categoryDescriptions": {
+                        "$push": {"k": "$category", "v": "$description"}
+                    },
+                }
+            },
+            {"$replaceRoot": {"newRoot": {"$arrayToObject": "$categoryDescriptions"}}},
+        ],
+    )
+    const categories_val = categories[0];
+    let tag_example = "{"
+    Object.keys(categories_val).forEach((k) => {
+        tag_example += `${k}:[{
+            tag:  "${k}_tag_value1",
+            tag_description: "${k}tag_value1_description"
+        },
+        .
+        .
+        .
+        ],`;
+    });
+    tag_example += "// Add additional categories as needed }"
+    const joinedCategories = Object.keys(categories_val).join('|');
     // Function to split an array into chunks of a specified size
     function chunkArray(array, size) {
         const chunks = [];
@@ -1357,20 +1419,56 @@ async function generateProduct(uuid, clientId, agencyId) {
     }
     // Function to process one chunk of URLs
     async function extractProductDetailsForChunk(chunk) {
-        const contentPrompt = `${prompt}\n\n${prompt_code_part}\n\nInput Data:\n${JSON.stringify(chunk, null, 2)}\n\n Show only json as the answer. `;
+        const prompt_code_part = `You are a Creative Director. Your task is to analyze the product information from the provided links and return detailed products information in a structured JSON format. Follow these instructions precisely:
+    Visit and carefully review the content of the provided link.
+    Extract the product name and a concise yet detailed product description.
+    Identify relevant tags for the product according to the specified categories below. Use the provided Reference Tag Bank (listed below) to prioritize existing tags.
+    Only create a new tag if no suitable existing tag from the Reference Tag Bank is found. If a new tag is necessary
+
+tags categories:
+    ${JSON.stringify(categories_val, null, 1)}
+
+Reference Tag Bank (internal reference):
+    ${JSON.stringify(tags, null, 1)}
+
+urls:
+    ${JSON.stringify(chunk.map(item => item.url), null, 1)}
+    
+description (briefly explain the meaning or context of the tag)
+${prompt}
+Important rules to follow:
+    Any tag created that is not explicitly present in the Reference Tag Bank, including within categories ${joinedCategories}.
+    Ensure accuracy, conciseness, and relevance in each tag and description.
+    Generate tags using no more than three words unless explicitly permitted by the tag category description.
+
+Your response must follow this exact JSON format: 
+    [{
+        "product_name": "Product Name Here (The name of the product)",
+        "product_description": "Brief and clear product description goes here (A clear and concise one-line description that accurately defines the product's purpose or function.)",
+        "landing_url:v"Product URL"
+        "tags": ${tag_example},
+    },
+    .
+    .
+    .
+    ]
+Just return json and nothing else.
+`;
+
+        const data = {
+            model: prompt_setting.model,
+            messages: [
+                {role: "system", content: "You are a helpful assistant."},
+                {
+                    role: "user",
+                    content: prompt_code_part
+                }
+            ],
+            temperature: prompt_setting.temperature,
+        };
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
-            {
-                model: prompt_setting.model,
-                messages: [
-                    {role: "system", content: "You are a helpful assistant."},
-                    {
-                        role: "user",
-                        content: contentPrompt
-                    }
-                ],
-                temperature: prompt_setting.temperature,
-            },
+            data,
             {
                 headers: {
                     'Content-Type': 'application/json',
@@ -1379,13 +1477,16 @@ async function generateProduct(uuid, clientId, agencyId) {
             }
         );
         // The API should return the structured JSON as text.
+
         let output = response.data.choices[0].message.content;
+        // console.log(data,"<<<Data");
+        // console.log(output,"<<<output");
+        // console.log(output,"<<<<<<<<<<<<<<<output");
         output = output.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
 
         // Remove trailing commas before closing braces or brackets and remove newlines
         const contentFixed = output.replace(/,\s*([\}\]])/g, '$1').replace(/\n/g, '');
-        console.log(contentPrompt,"<<<<<<<<<contentPrompt")
-        console.log(contentFixed,"<<<<<<<<<contentFixed")
+        // console.log(contentFixed,"<<<contentFixed")
         // Assuming the output is valid JSON
         return JSON.parse(contentFixed);
 
@@ -1404,6 +1505,8 @@ async function generateProduct(uuid, clientId, agencyId) {
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Processing chunk ${i + 1} of ${chunks.length}`);
             const result = await extractProductDetailsForChunk(chunks[i]);
+            // console.log(result,"<<<<<<<<<<<<<result");
+
             // Merge the current chunk's result into the overall array
             allResults.push(...result);
             currentProgress += progressIncrement;
@@ -1417,25 +1520,33 @@ async function generateProduct(uuid, clientId, agencyId) {
     }
     // Execute and print the final results
     const funnels = await extractAllProductDetails()
-    let default_tags_categories = await findDocuments("tags_categories",{client_id:clientId})
-    if (default_tags_categories.length === 0 ) {
-        const default_tags_categories = await findDocuments(
-            "tags_categories",
-            {client_id:"global", agency_id : "global"},
-            {_id:0,"client_id":clientId,"agency_id":agencyId,category:1,description:1}
-        );
-        await insertMany("tags_categories", default_tags_categories);
+    // console.log(funnels,"<<<<<<")
+    for (let i = 0; i < funnels.length; i++) {
+        const funnel = funnels[i]
+        // for (let i = 0; i < funnel.tags.length; i++) {
+        {
+            for (const [key, value] of Object.entries(funnel.tags)) {
+                // Wait for the asynchronous operation to complete before continuing
+                for (let i = 0; i < value.length; i++){
+                    const update_result = await updateOneDocument("tags",{
+                        "tag":value[i].tag,
+                        category:key,
+                        client_id:clientId,
+                        agency_id:agencyId
+                    }, {$set: {
+                            description: value[i].tag_description,
+                            updated_by: "AI-Product",
+                            updated_at: new Date()
+                        },$setOnInsert: {created_at: new Date(),created_by:"AI-Product"}
+                    },{upsert: true})
+                }
+            }
+        }
+
+
+
+        // }
     }
-    // let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
-    // if (default_tags.length === 0 ) {
-    //     default_tags = await findDocuments("tags",{is_default:true,client_id:"global", agency_id : "global"},{_id:0});
-    //     default_tags.forEach(tag => {
-    //         tag.client_id = clientId;
-    //         tag.agency_id = agencyId
-    //     });
-    //     const inserted_tags = await insertMany("tags",default_tags);
-    //
-    // }
     let jackpot = await aggregateDocuments("tags",[
         {$match:{client_id:clientId}},
         {
@@ -1471,7 +1582,7 @@ async function generateProduct(uuid, clientId, agencyId) {
     let currentProgress = startProgress;
     for (let i = 0; i < funnels.length; i++) {
         const funnel = funnels[i]
-        const funnelName = funnel.funnel_name.toLowerCase();
+        const funnelName = funnel.product_name.toLowerCase();
         await updateOneDocument("products",
             {
                 funnel_name: funnelName,
@@ -1484,7 +1595,7 @@ async function generateProduct(uuid, clientId, agencyId) {
                     funnel_form_data: {
                         landing_url: funnel.landing_url,
                         funnel_name: funnelName,
-                        funnel_description: funnel.funnel_description
+                        funnel_description: funnel.product_description
                     },
                     jackpot: jackpot[0] || {},
                     landing_url: funnel.landing_url,
@@ -1499,7 +1610,7 @@ async function generateProduct(uuid, clientId, agencyId) {
         }, {$set: {
                 description: funnel.funnel_description,
             },$setOnInsert: {created_at: new Date(),created_by:"AI"}
-            },{upsert: true})
+        },{upsert: true})
         await updateManyDocuments("assets", {
             "client_id": clientId,
             "meta_tags.offer": {$exists: false},
@@ -1903,14 +2014,14 @@ app.listen(PORT, () => {
 
 // console.log(await mainTask(
 //     {
-//         fbAccessToken: "EAAIZAsmwy9VgBO5jZBI1UMh2v5DUwyl2M6nq3xRbCrN1Bg2KXDLO0nFpL1H2SivDBCv88HlwcpO1rJqCakQxJ0gSjgoa7v50pXsPtV4yZCZB2gdngaqyxBlusasgBRdC3Om0sUDN2AUCTOjZAZApRzpGjbSUmgBWAqE5siInyC7wrD8VCDycRUDtecAEwvLftHVGbHpk4iszsh3lUmlIFjv8LnYQuC4LYrKRYyJYe6C7Oh0UTLcIQQYQZDZD",
-//         FBadAccountId: "act_2177038889076275",
-//         start_date: "2025-02-09",
-//         end_date: "2025-02-10",
+//         fbAccessToken: "EAAYXHibjFxoBO6vxBI78V3tdAbSkxT5WbqiFUjUc4pCsal5b35r1ZC6rZCSQV4FYSgsJxKqv1EvC03ZAKVu6dAAAzLnHFDZCoZBLy1s826iv54IKD1Ie3mkf6LzDWvihtRu1iECkW3eNvDEdeNseXhaF0QGBzplGZA4NhrubpDw4Ye9d7y35o0loBRZASepixlB5aJaUvzL7LIdiFOugs7ZAnmiNAWBeYLGwOEjBbOZABmugviaztQAZDZD",
+//         FBadAccountId: "act_555176035960035",
+//         start_date: "2025-03-29",
+//         end_date: "2025-03-30",
 //         agencyId: "6656208cdb5d669b53cc98c5",
-//         clientId: "66563830f3e130c7a1c005f9",
+//         clientId: "67d306be742ef319388d07d1",
 //         userId: "66b03f924a9351d9433dca51",
-//         importListName: "Activation Products - Ease Magnesium-2Days",
+//         importListName: "Lancer Skincare (US) BACKUP PMT-2Days",
 //         uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
 //         ad_objective_id: "landing_page_views",
 //         ad_objective_field_expr: "actions.landing_page_view"
