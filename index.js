@@ -12,7 +12,6 @@ const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v22.0";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const client = new MongoClient(uri,{
-    useNewUrlParser: true,
     family: 4  // Force IPv4
 });
 const dbName = 'FluxDB';
@@ -1331,7 +1330,7 @@ async function generateProduct(uuid, clientId, agencyId) {
         {
             $match: {
                 "client_id": clientId,
-                "meta_tags.offer": {$exists: false},
+                // "meta_tags.offer": {$exists: false},
                 "meta_data.fb_data.product_url": {
                     $exists: true,
                     // "$ne": null,
@@ -1353,6 +1352,7 @@ async function generateProduct(uuid, clientId, agencyId) {
         }
     ])
     // Your prompt instructing the extraction details
+    // console.log(assets_links,"<<<<<assets_links");
     const prompt_setting = await findOneDocument("settings", {"key": "extractProductPrompt"})
     const prompt = prompt_setting.promptTemplate;
 
@@ -1409,38 +1409,6 @@ async function generateProduct(uuid, clientId, agencyId) {
     });
     tag_example += "// Add additional categories as needed }"
     const joinedCategories = Object.keys(categories_val).join('|');
-
-    const prompt_code_part = `You are a Creative Director. Your task is to analyze the product information from the provided links and return detailed products information in a structured JSON format. Follow these instructions precisely:
-    Visit and carefully review the content of the provided link.
-    Extract the product name and a concise yet detailed product description.
-    Identify relevant tags for the product according to the specified categories below. Use the provided Reference Tag Bank (listed below) to prioritize existing tags.
-    Only create a new tag if no suitable existing tag from the Reference Tag Bank is found. If a new tag is necessary
-
-tags categories:
-    ${JSON.stringify(categories_val, null, 1)}
-
-Reference Tag Bank (internal reference):
-    ${JSON.stringify(tags, null, 1)}
-description (briefly explain the meaning or context of the tag)
-
-Important rules to follow:
-    Any tag created that is not explicitly present in the Reference Tag Bank, including within categories ${joinedCategories}.
-    Ensure accuracy, conciseness, and relevance in each tag and description.
-    Generate tags using no more than three words unless explicitly permitted by the tag category description.
-
-
-Structure your response strictly following this JSON format:
-    [{
-        "product_name": "Product Name Here (The name of the product)",
-        "product_description": "Brief and clear product description goes here (A clear and concise one-line description that accurately defines the product's purpose or function.)",
-        "tags": ${tag_example},
-    },
-    .
-    .
-    .
-    ]
-
-`;
     // Function to split an array into chunks of a specified size
     function chunkArray(array, size) {
         const chunks = [];
@@ -1451,21 +1419,56 @@ Structure your response strictly following this JSON format:
     }
     // Function to process one chunk of URLs
     async function extractProductDetailsForChunk(chunk) {
-        const content = `${prompt}\n\n${prompt_code_part}\n\nurls:\n${JSON.stringify(chunk.map(item => item.url), null, 1)}\n\n Show only json as the answer.`;
-        console.log(content,"<<<<<<<<<<<<<contentprompt");
+        const prompt_code_part = `You are a Creative Director. Your task is to analyze the product information from the provided links and return detailed products information in a structured JSON format. Follow these instructions precisely:
+    Visit and carefully review the content of the provided link.
+    Extract the product name and a concise yet detailed product description.
+    Identify relevant tags for the product according to the specified categories below. Use the provided Reference Tag Bank (listed below) to prioritize existing tags.
+    Only create a new tag if no suitable existing tag from the Reference Tag Bank is found. If a new tag is necessary
+
+tags categories:
+    ${JSON.stringify(categories_val, null, 1)}
+
+Reference Tag Bank (internal reference):
+    ${JSON.stringify(tags, null, 1)}
+
+urls:
+    ${JSON.stringify(chunk.map(item => item.url), null, 1)}
+    
+description (briefly explain the meaning or context of the tag)
+${prompt}
+Important rules to follow:
+    Any tag created that is not explicitly present in the Reference Tag Bank, including within categories ${joinedCategories}.
+    Ensure accuracy, conciseness, and relevance in each tag and description.
+    Generate tags using no more than three words unless explicitly permitted by the tag category description.
+
+Your response must follow this exact JSON format: 
+    [{
+        "product_name": "Product Name Here (The name of the product)",
+        "product_description": "Brief and clear product description goes here (A clear and concise one-line description that accurately defines the product's purpose or function.)",
+        "landing_url:v"Product URL"
+        "tags": ${tag_example},
+    },
+    .
+    .
+    .
+    ]
+Just return json and nothing else.
+`;
+
+        const data = {
+            model: prompt_setting.model,
+            messages: [
+                {role: "system", content: "You are a helpful assistant."},
+                {
+                    role: "user",
+                    content: prompt_code_part
+                }
+            ],
+            temperature: prompt_setting.temperature,
+        };
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
-            {
-                model: prompt_setting.model,
-                messages: [
-                    {role: "system", content: "You are a helpful assistant."},
-                    {
-                        role: "user",
-                        content: content
-                    }
-                ],
-                temperature: prompt_setting.temperature,
-            },
+            data,
             {
                 headers: {
                     'Content-Type': 'application/json',
@@ -1474,12 +1477,16 @@ Structure your response strictly following this JSON format:
             }
         );
         // The API should return the structured JSON as text.
+
         let output = response.data.choices[0].message.content;
+        // console.log(data,"<<<Data");
+        // console.log(output,"<<<output");
+        // console.log(output,"<<<<<<<<<<<<<<<output");
         output = output.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
 
         // Remove trailing commas before closing braces or brackets and remove newlines
         const contentFixed = output.replace(/,\s*([\}\]])/g, '$1').replace(/\n/g, '');
-        console.log(contentFixed,"<<<contentFixed")
+        // console.log(contentFixed,"<<<contentFixed")
         // Assuming the output is valid JSON
         return JSON.parse(contentFixed);
 
@@ -1498,7 +1505,7 @@ Structure your response strictly following this JSON format:
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Processing chunk ${i + 1} of ${chunks.length}`);
             const result = await extractProductDetailsForChunk(chunks[i]);
-            console.log(result,"<<<<<<<<<<<<<result");
+            // console.log(result,"<<<<<<<<<<<<<result");
 
             // Merge the current chunk's result into the overall array
             allResults.push(...result);
@@ -1513,7 +1520,33 @@ Structure your response strictly following this JSON format:
     }
     // Execute and print the final results
     const funnels = await extractAllProductDetails()
+    // console.log(funnels,"<<<<<<")
+    for (let i = 0; i < funnels.length; i++) {
+        const funnel = funnels[i]
+        // for (let i = 0; i < funnel.tags.length; i++) {
+            {
+                for (const [key, value] of Object.entries(funnel.tags)) {
+                    // Wait for the asynchronous operation to complete before continuing
+                    for (let i = 0; i < value.length; i++){
+                        const update_result = await updateOneDocument("tags",{
+                            "tag":value[i].tag,
+                            category:key,
+                            client_id:clientId,
+                            agency_id:agencyId
+                        }, {$set: {
+                                description: value[i].tag_description,
+                                updated_by: "AI-Product",
+                                updated_at: new Date()
+                            },$setOnInsert: {created_at: new Date(),created_by:"AI-Product"}
+                        },{upsert: true})
+                    }
+                }
+            }
 
+
+
+    // }
+    }
     let jackpot = await aggregateDocuments("tags",[
         {$match:{client_id:clientId}},
         {
@@ -1549,8 +1582,8 @@ Structure your response strictly following this JSON format:
     let currentProgress = startProgress;
     for (let i = 0; i < funnels.length; i++) {
         const funnel = funnels[i]
-        const funnelName = funnel.funnel_name.toLowerCase();
-        await updateOneDocument("products",
+        const funnelName = funnel.product_name.toLowerCase();
+            await updateOneDocument("products",
             {
                 funnel_name: funnelName,
                 client_id: clientId,
@@ -1562,7 +1595,7 @@ Structure your response strictly following this JSON format:
                     funnel_form_data: {
                         landing_url: funnel.landing_url,
                         funnel_name: funnelName,
-                        funnel_description: funnel.funnel_description
+                        funnel_description: funnel.product_description
                     },
                     jackpot: jackpot[0] || {},
                     landing_url: funnel.landing_url,
@@ -1720,6 +1753,8 @@ async function mainTask(params) {
             }
         ]))[0];
         console.log("Getting ads ... ")
+        await generateProduct(uuid, clientId, agencyId)
+        return
         const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
         const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id)
         const exist_fields = findNonEmptyKeys(ads)
