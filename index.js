@@ -458,9 +458,9 @@ let schema = [
         "formula": "N/A"
     },
     {
-        "key": "video_p25_watched_actions",
+        "key": "video_p25_watched",
         "is_default": true,
-        "title": "Video p25 watched actions",
+        "title": "Video p25 watched",
         "description": "",
         "required": false,
         "type": "integer",
@@ -470,9 +470,9 @@ let schema = [
         "formula": "N/A"
     },
     {
-        "key": "video_p50_watched_actions",
+        "key": "video_p50_watched",
         "is_default": true,
-        "title": "Video p50 watched actions",
+        "title": "Video p50 watched",
         "description": "",
         "required": false,
         "type": "integer",
@@ -482,9 +482,9 @@ let schema = [
         "formula": "N/A"
     },
     {
-        "key": "video_p75_watched_actions",
+        "key": "video_p75_watched",
         "is_default": true,
-        "title": "Video p75 watched actions",
+        "title": "Video p75 watched",
         "description": "",
         "required": false,
         "type": "integer",
@@ -494,9 +494,9 @@ let schema = [
         "formula": "N/A"
     },
     {
-        "key": "video_p95_watched_actions",
+        "key": "video_p95_watched",
         "is_default": true,
-        "title": "Video p95 watched actions",
+        "title": "Video p95 watched",
         "description": "",
         "required": false,
         "type": "integer",
@@ -506,9 +506,9 @@ let schema = [
         "formula": "N/A"
     },
     {
-        "key": "video_p100_watched_actions",
+        "key": "video_p100_watched",
         "is_default": true,
-        "title": "Video p100 watched actions",
+        "title": "Video p100 watched",
         "description": "",
         "required": false,
         "type": "integer",
@@ -876,11 +876,11 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
             video_view_3s: item.actions?.video_view || null,
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
             video_avg_time_watched: item.video_avg_time_watched_actions?.video_view || null,
-            video_p25_watched_actions: item.video_p25_watched_actions?.video_view || null,
-            video_p50_watched_actions: item.video_p50_watched_actions?.video_view || null,
-            video_p75_watched_actions: item.video_p75_watched_actions?.video_view || null,
-            video_p95_watched_actions: item.video_p95_watched_actions?.video_view || null,
-            video_p100_watched_actions: item.video_p100_watched_actions?.video_view || null,
+            video_p25_watched: item.video_p25_watched_actions?.video_view || null,
+            video_p50_watched: item.video_p50_watched_actions?.video_view || null,
+            video_p75_watched: item.video_p75_watched_actions?.video_view || null,
+            video_p95_watched: item.video_p95_watched_actions?.video_view || null,
+            video_p100_watched: item.video_p100_watched_actions?.video_view || null,
             // [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
             result: item?.[expr[0]]?.[expr[1]],
             cpr: item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
