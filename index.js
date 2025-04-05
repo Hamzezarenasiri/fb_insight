@@ -1770,8 +1770,8 @@ async function mainTask(params) {
         agencyId = new ObjectId(agencyId);
         clientId = new ObjectId(clientId);
         userId = new ObjectId(userId);
-        await generateProduct(uuid, clientId, agencyId)
-        return
+        // await generateProduct(uuid, clientId, agencyId)
+        // return
         await saveFacebookImportStatus(uuid, {
             start_date,
             end_date,
