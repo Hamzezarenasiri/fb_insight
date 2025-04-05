@@ -237,7 +237,6 @@ let schema = [
         "format": "percent",
         "formula": "link_clicks / impressions"
     },
-
     {
         "key": "hold",
         "title": "Hold",
@@ -454,6 +453,66 @@ let schema = [
         "required": false,
         "type": "integer",
         "similar_dictionary": ["video_avg_time_watched", "Video Average Time Watched", "Average Time", "Video Average"],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "video_p25_watched_actions",
+        "is_default": true,
+        "title": "Video p25 watched actions",
+        "description": "",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": ["video_p25_watched_actions"],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "video_p50_watched_actions",
+        "is_default": true,
+        "title": "Video p50 watched actions",
+        "description": "",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": ["video_p50_watched_actions"],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "video_p75_watched_actions",
+        "is_default": true,
+        "title": "Video p75 watched actions",
+        "description": "",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": ["video_p75_watched_actions"],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "video_p95_watched_actions",
+        "is_default": true,
+        "title": "Video p95 watched actions",
+        "description": "",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": ["video_p95_watched_actions"],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "video_p100_watched_actions",
+        "is_default": true,
+        "title": "Video p100 watched actions",
+        "description": "",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": ["video_p100_watched_actions"],
         "order_preference": "decs",
         "format": "number",
         "formula": "N/A"
@@ -817,6 +876,11 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
             video_view_3s: item.actions?.video_view || null,
             video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
             video_avg_time_watched: item.video_avg_time_watched_actions?.video_view || null,
+            video_p25_watched_actions: item.video_p25_watched_actions?.video_view || null,
+            video_p50_watched_actions: item.video_p50_watched_actions?.video_view || null,
+            video_p75_watched_actions: item.video_p75_watched_actions?.video_view || null,
+            video_p95_watched_actions: item.video_p95_watched_actions?.video_view || null,
+            video_p100_watched_actions: item.video_p100_watched_actions?.video_view || null,
             // [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
             result: item?.[expr[0]]?.[expr[1]],
             cpr: item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
