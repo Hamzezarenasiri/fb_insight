@@ -1443,6 +1443,9 @@ async function generateProduct(uuid, clientId, agencyId) {
         },
         {"$replaceRoot": {"newRoot": {"$arrayToObject": "$categories"}}},
     ])
+    if (tags.length > 1) {
+        return
+    }
     const categories = await aggregateDocuments(
         "tags_categories",
         [
@@ -1488,14 +1491,10 @@ async function generateProduct(uuid, clientId, agencyId) {
         const prompt_code_part = `You are a Creative Director. Your task is to analyze the product information from the provided links and return detailed products information in a structured JSON format. Follow these instructions precisely:
     Visit and carefully review the content of the provided link.
     Extract the product name and a concise yet detailed product description.
-    Identify relevant tags for the product according to the specified categories below. Use the provided Reference Tag Bank (listed below) to prioritize existing tags.
-    Only create a new tag if no suitable existing tag from the Reference Tag Bank is found. If a new tag is necessary
+    Identify relevant tags for the product according to the specified categories below.
 
 tags categories:
     ${JSON.stringify(categories_val, null, 1)}
-
-Reference Tag Bank (internal reference):
-    ${JSON.stringify(tags, null, 1)}
 
 urls:
     ${JSON.stringify(chunk.map(item => item.url), null, 1)}
@@ -1503,7 +1502,7 @@ urls:
 description (briefly explain the meaning or context of the tag)
 ${prompt}
 Important rules to follow:
-    Any tag created that is not explicitly present in the Reference Tag Bank, including within categories ${joinedCategories}.
+    Any tag created, including within categories ${joinedCategories}.
     Ensure accuracy, conciseness, and relevance in each tag and description.
     Generate tags using no more than three words unless explicitly permitted by the tag category description.
 
@@ -2083,19 +2082,19 @@ app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-console.log(await mainTask(
-    {
-        fbAccessToken: "EAAYXHibjFxoBO6vxBI78V3tdAbSkxT5WbqiFUjUc4pCsal5b35r1ZC6rZCSQV4FYSgsJxKqv1EvC03ZAKVu6dAAAzLnHFDZCoZBLy1s826iv54IKD1Ie3mkf6LzDWvihtRu1iECkW3eNvDEdeNseXhaF0QGBzplGZA4NhrubpDw4Ye9d7y35o0loBRZASepixlB5aJaUvzL7LIdiFOugs7ZAnmiNAWBeYLGwOEjBbOZABmugviaztQAZDZD",
-        FBadAccountId: "act_555176035960035",
-        start_date: "2025-03-29",
-        end_date: "2025-03-30",
-        agencyId: "6656208cdb5d669b53cc98c5",
-        clientId: "67d306be742ef319388d07d1",
-        userId: "66b03f924a9351d9433dca51",
-        importListName: "Lancer Skincare (US) BACKUP PMT-2Days",
-        uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
-        ad_objective_id: "landing_page_views",
-        ad_objective_field_expr: "actions.landing_page_view"
-    }
-))
+// console.log(await mainTask(
+//     {
+//         fbAccessToken: "EAAYXHibjFxoBO6vxBI78V3tdAbSkxT5WbqiFUjUc4pCsal5b35r1ZC6rZCSQV4FYSgsJxKqv1EvC03ZAKVu6dAAAzLnHFDZCoZBLy1s826iv54IKD1Ie3mkf6LzDWvihtRu1iECkW3eNvDEdeNseXhaF0QGBzplGZA4NhrubpDw4Ye9d7y35o0loBRZASepixlB5aJaUvzL7LIdiFOugs7ZAnmiNAWBeYLGwOEjBbOZABmugviaztQAZDZD",
+//         FBadAccountId: "act_555176035960035",
+//         start_date: "2025-03-29",
+//         end_date: "2025-03-30",
+//         agencyId: "6656208cdb5d669b53cc98c5",
+//         clientId: "67d306be742ef319388d07d1",
+//         userId: "66b03f924a9351d9433dca51",
+//         importListName: "Lancer Skincare (US) BACKUP PMT-2Days",
+//         uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
+//         ad_objective_id: "landing_page_views",
+//         ad_objective_field_expr: "actions.landing_page_view"
+//     }
+// ))
 
