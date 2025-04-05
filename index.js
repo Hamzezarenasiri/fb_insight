@@ -464,7 +464,7 @@ let schema = [
         "description": "",
         "required": false,
         "type": "integer",
-        "similar_dictionary": ["video_p25_watched_actions"],
+        "similar_dictionary": [],
         "order_preference": "decs",
         "format": "number",
         "formula": "N/A"
@@ -476,7 +476,7 @@ let schema = [
         "description": "",
         "required": false,
         "type": "integer",
-        "similar_dictionary": ["video_p50_watched_actions"],
+        "similar_dictionary": [],
         "order_preference": "decs",
         "format": "number",
         "formula": "N/A"
@@ -488,7 +488,7 @@ let schema = [
         "description": "",
         "required": false,
         "type": "integer",
-        "similar_dictionary": ["video_p75_watched_actions"],
+        "similar_dictionary": [],
         "order_preference": "decs",
         "format": "number",
         "formula": "N/A"
@@ -500,7 +500,7 @@ let schema = [
         "description": "",
         "required": false,
         "type": "integer",
-        "similar_dictionary": ["video_p95_watched_actions"],
+        "similar_dictionary": [],
         "order_preference": "decs",
         "format": "number",
         "formula": "N/A"
@@ -512,7 +512,7 @@ let schema = [
         "description": "",
         "required": false,
         "type": "integer",
-        "similar_dictionary": ["video_p100_watched_actions"],
+        "similar_dictionary": [],
         "order_preference": "decs",
         "format": "number",
         "formula": "N/A"
@@ -1496,7 +1496,7 @@ tags categories:
     ${JSON.stringify(categories_val, null, 1)}
 
 urls:
-    ${JSON.stringify(chunk.map(item => item.url).filter(item => item !== null), null, 1)}
+    ${JSON.stringify(chunk.map(item => item.url).filter(Boolean), null, 1)}
     
 description (briefly explain the meaning or context of the tag)
 ${prompt}
