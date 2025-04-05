@@ -11,7 +11,7 @@ dotenv.config();
 const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v22.0";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-const client = new MongoClient(uri,{
+const client = new MongoClient(uri, {
     family: 4  // Force IPv4
 });
 const dbName = 'FluxDB';
@@ -1301,18 +1301,18 @@ async function updateMessagesAndLinks(uuid, clientId) {
         );
         currentProgress += progressIncrement;
         await saveFacebookImportStatus(uuid, {
-            percentage:currentProgress
+            percentage: currentProgress
         })
     }
 }
 
 async function generateProduct(uuid, clientId, agencyId) {
-    let default_tags_categories = await findDocuments("tags_categories",{client_id:clientId})
-    if (default_tags_categories.length === 0 ) {
-        const default_tags_categories = await findDocuments(
+    let default_tags_categories = await findDocuments("tags_categories", {client_id: clientId})
+    if (default_tags_categories.length === 0) {
+        default_tags_categories = await findDocuments(
             "tags_categories",
-            {client_id:"global", agency_id : "global"},
-            {_id:0,"client_id":clientId,"agency_id":agencyId,category:1,description:1}
+            {client_id: "global", agency_id: "global"},
+            {_id: 0, "client_id": clientId, "agency_id": agencyId, category: 1, description: 1}
         );
         await insertMany("tags_categories", default_tags_categories);
     }
@@ -1400,7 +1400,7 @@ async function generateProduct(uuid, clientId, agencyId) {
     Object.keys(categories_val).forEach((k) => {
         tag_example += `${k}:[{
             tag:  "${k}_tag_value1",
-            tag_description: "${k}tag_value1_description"
+            tag_description: "${k}_tag_value1_description"
         },
         .
         .
@@ -1409,6 +1409,7 @@ async function generateProduct(uuid, clientId, agencyId) {
     });
     tag_example += "// Add additional categories as needed }"
     const joinedCategories = Object.keys(categories_val).join('|');
+
     // Function to split an array into chunks of a specified size
     function chunkArray(array, size) {
         const chunks = [];
@@ -1417,6 +1418,7 @@ async function generateProduct(uuid, clientId, agencyId) {
         }
         return chunks;
     }
+
     // Function to process one chunk of URLs
     async function extractProductDetailsForChunk(chunk) {
         const prompt_code_part = `You are a Creative Director. Your task is to analyze the product information from the provided links and return detailed products information in a structured JSON format. Follow these instructions precisely:
@@ -1454,7 +1456,7 @@ Your response must follow this exact JSON format:
     ]
 Just return json and nothing else.
 `;
-
+        console.log(prompt_code_part,"<<<<<<<<prompt_code_part")
         const data = {
             model: prompt_setting.model,
             messages: [
@@ -1488,9 +1490,11 @@ Just return json and nothing else.
         const contentFixed = output.replace(/,\s*([\}\]])/g, '$1').replace(/\n/g, '');
         // console.log(contentFixed,"<<<contentFixed")
         // Assuming the output is valid JSON
+        console.log(`result: ${contentFixed}`);
         return JSON.parse(contentFixed);
 
     }
+
     // Main function to process all chunks and accumulate the results
     async function extractAllProductDetails() {
         const chunkSize = 50;
@@ -1505,54 +1509,53 @@ Just return json and nothing else.
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Processing chunk ${i + 1} of ${chunks.length}`);
             const result = await extractProductDetailsForChunk(chunks[i]);
-            // console.log(result,"<<<<<<<<<<<<<result");
 
             // Merge the current chunk's result into the overall array
             allResults.push(...result);
             currentProgress += progressIncrement;
             await saveFacebookImportStatus(uuid, {
-                percentage:currentProgress
+                percentage: currentProgress
             })
 
         }
 
         return allResults;
     }
+
     // Execute and print the final results
     const funnels = await extractAllProductDetails()
-    // console.log(funnels,"<<<<<<")
     for (let i = 0; i < funnels.length; i++) {
         const funnel = funnels[i]
         // for (let i = 0; i < funnel.tags.length; i++) {
         {
             for (const [key, value] of Object.entries(funnel.tags)) {
                 // Wait for the asynchronous operation to complete before continuing
-                for (let i = 0; i < value.length; i++){
-                    const update_result = await updateOneDocument("tags",{
-                        "tag":value[i].tag,
-                        category:key,
-                        client_id:clientId,
-                        agency_id:agencyId
-                    }, {$set: {
+                for (let i = 0; i < value.length; i++) {
+                    const update_result = await updateOneDocument("tags", {
+                        "tag": value[i].tag,
+                        category: key,
+                        client_id: clientId,
+                        agency_id: agencyId
+                    }, {
+                        $set: {
                             description: value[i].tag_description,
                             updated_by: "AI-Product",
                             updated_at: new Date()
-                        },$setOnInsert: {created_at: new Date(),created_by:"AI-Product"}
-                    },{upsert: true})
+                        }, $setOnInsert: {created_at: new Date(), created_by: "AI-Product"}
+                    }, {upsert: true})
                 }
             }
         }
 
 
-
         // }
     }
-    let jackpot = await aggregateDocuments("tags",[
-        {$match:{client_id:clientId}},
+    let jackpot = await aggregateDocuments("tags", [
+        {$match: {client_id: clientId}},
         {
             $group: {
                 _id: "$category",
-                ids: { $push: "$_id" }
+                ids: {$push: "$_id"}
             }
         },
         // Convert each grouped document into a key/value pair.
@@ -1567,12 +1570,12 @@ Just return json and nothing else.
         {
             $group: {
                 _id: null,
-                categories: { $push: { k: "$k", v: "$v" } }
+                categories: {$push: {k: "$k", v: "$v"}}
             }
         },
         // Replace the root with the new document formed from the key/value pairs.
         {
-            $replaceRoot: { newRoot: { $arrayToObject: "$categories" } }
+            $replaceRoot: {newRoot: {$arrayToObject: "$categories"}}
         },
     ]);
     let startProgress = 90;
@@ -1602,15 +1605,16 @@ Just return json and nothing else.
                     funnel_description: funnel.funnel_description
                 }
             }, {upsert: true});
-        await updateOneDocument("tags",{
-            "tag":funnelName,
-            category:"offer",
-            client_id:clientId,
-            agency_id:agencyId
-        }, {$set: {
+        await updateOneDocument("tags", {
+            "tag": funnelName,
+            category: "offer",
+            client_id: clientId,
+            agency_id: agencyId
+        }, {
+            $set: {
                 description: funnel.funnel_description,
-            },$setOnInsert: {created_at: new Date(),created_by:"AI"}
-        },{upsert: true})
+            }, $setOnInsert: {created_at: new Date(), created_by: "AI"}
+        }, {upsert: true})
         await updateManyDocuments("assets", {
             "client_id": clientId,
             "meta_tags.offer": {$exists: false},
@@ -1618,7 +1622,7 @@ Just return json and nothing else.
         }, {"$set": {"meta_tags.offer": funnelName}})
         currentProgress += progressIncrement;
         await saveFacebookImportStatus(uuid, {
-            percentage:currentProgress
+            percentage: currentProgress
         })
 
     }
@@ -1702,6 +1706,8 @@ async function mainTask(params) {
         agencyId = new ObjectId(agencyId);
         clientId = new ObjectId(clientId);
         userId = new ObjectId(userId);
+        await generateProduct(uuid, clientId, agencyId)
+        return
         await saveFacebookImportStatus(uuid, {
             start_date,
             end_date,
@@ -1728,30 +1734,31 @@ async function mainTask(params) {
         // }, {
         //     "$set": {"updatedAt": new Date()}
         // }, {upsert: true})).schema || [];
-        const MetricsIDs = (await aggregateDocuments("metrics", [{
-            $match: {
-                Ad_Name: {$exists: true, $ne: null},
-                asset_id: {$exists: true, $ne: null},
-                client_id: clientId
-            }
-        },
-            {
-                $project: {
-                    keyValue: {k: "$Ad_Name", v: "$asset_id"}
+        const MetricsIDs = (await aggregateDocuments("metrics", [
+                {
+                    $match: {
+                        Ad_Name: {$exists: true, $ne: null},
+                        asset_id: {$exists: true, $ne: null},
+                        client_id: clientId
+                    }
+                },
+                {
+                    $project: {
+                        keyValue: {k: "$Ad_Name", v: "$asset_id"}
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        keyValues: {$push: "$keyValue"}
+                    }
+                },
+                {
+                    $replaceRoot: {
+                        newRoot: {$arrayToObject: "$keyValues"}
+                    }
                 }
-            },
-            {
-                $group: {
-                    _id: null,
-                    keyValues: {$push: "$keyValue"}
-                }
-            },
-            {
-                $replaceRoot: {
-                    newRoot: {$arrayToObject: "$keyValues"}
-                }
-            }
-        ]))[0];
+            ]))[0];
         console.log("Getting ads ... ")
         const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
         const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id)
@@ -1776,7 +1783,7 @@ async function mainTask(params) {
         }, {}, {"createdAt": -1}))?.[0]
         const last_sub_reports = last_imported_list ? await findDocuments("sub_reports", {
             import_list_id: last_imported_list._id
-        },{html_note:0}) : []
+        }, {html_note: 0}) : []
         const importListDocument = {
             date_range: `from:${start_date}-to:${end_date}`,
             start_date: new Date(start_date),
@@ -1908,7 +1915,7 @@ async function mainTask(params) {
         if (!validatedRecords || validatedRecords.length === 0) {
             await saveFacebookImportStatus(uuid, {
                 status: "is_empty",
-                percentage:0
+                percentage: 0
             })
             return {
                 statusCode: 200,
@@ -1962,13 +1969,13 @@ async function mainTask(params) {
         }
         await saveFacebookImportStatus(uuid, {
             status: "Analyzing imported data",
-            percentage:30
+            percentage: 30
         })
-        await updateMessagesAndLinks(uuid,clientId)
+        await updateMessagesAndLinks(uuid, clientId)
         await generateProduct(uuid, clientId, agencyId)
         await saveFacebookImportStatus(uuid, {
             status: "success",
-            percentage:100
+            percentage: 100
         })
     } catch (error) {
         console.error("An error occurred:", error);
@@ -2012,19 +2019,19 @@ app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-// console.log(await mainTask(
-//     {
-//         fbAccessToken: "EAAYXHibjFxoBO6vxBI78V3tdAbSkxT5WbqiFUjUc4pCsal5b35r1ZC6rZCSQV4FYSgsJxKqv1EvC03ZAKVu6dAAAzLnHFDZCoZBLy1s826iv54IKD1Ie3mkf6LzDWvihtRu1iECkW3eNvDEdeNseXhaF0QGBzplGZA4NhrubpDw4Ye9d7y35o0loBRZASepixlB5aJaUvzL7LIdiFOugs7ZAnmiNAWBeYLGwOEjBbOZABmugviaztQAZDZD",
-//         FBadAccountId: "act_555176035960035",
-//         start_date: "2025-03-29",
-//         end_date: "2025-03-30",
-//         agencyId: "6656208cdb5d669b53cc98c5",
-//         clientId: "67d306be742ef319388d07d1",
-//         userId: "66b03f924a9351d9433dca51",
-//         importListName: "Lancer Skincare (US) BACKUP PMT-2Days",
-//         uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
-//         ad_objective_id: "landing_page_views",
-//         ad_objective_field_expr: "actions.landing_page_view"
-//     }
-// ))
+console.log(await mainTask(
+    {
+        fbAccessToken: "EAAYXHibjFxoBO6vxBI78V3tdAbSkxT5WbqiFUjUc4pCsal5b35r1ZC6rZCSQV4FYSgsJxKqv1EvC03ZAKVu6dAAAzLnHFDZCoZBLy1s826iv54IKD1Ie3mkf6LzDWvihtRu1iECkW3eNvDEdeNseXhaF0QGBzplGZA4NhrubpDw4Ye9d7y35o0loBRZASepixlB5aJaUvzL7LIdiFOugs7ZAnmiNAWBeYLGwOEjBbOZABmugviaztQAZDZD",
+        FBadAccountId: "act_555176035960035",
+        start_date: "2025-03-29",
+        end_date: "2025-03-30",
+        agencyId: "6656208cdb5d669b53cc98c5",
+        clientId: "67d306be742ef319388d07d1",
+        userId: "66b03f924a9351d9433dca51",
+        importListName: "Lancer Skincare (US) BACKUP PMT-2Days",
+        uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
+        ad_objective_id: "landing_page_views",
+        ad_objective_field_expr: "actions.landing_page_view"
+    }
+))
 
