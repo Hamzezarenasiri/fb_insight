@@ -516,6 +516,18 @@ let schema = [
         "order_preference": "decs",
         "format": "number",
         "formula": "N/A"
+    },
+    {
+        "key": "momentum_rate",
+        "is_default": true,
+        "title": "Momentum Rate (PSS)",
+        "description": "",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": [],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "1 - ((video_p75_watched / impressions) / (video_p25_watched / impressions))"
     }
 ]
 
@@ -881,6 +893,7 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
             video_p75_watched: item.video_p75_watched_actions?.video_view || null,
             video_p95_watched: item.video_p95_watched_actions?.video_view || null,
             video_p100_watched: item.video_p100_watched_actions?.video_view || null,
+            momentum_rate: impressions ? ((item.video_p25_watched_actions?.video_view / impressions) ? 1 - ((item.video_p75_watched_actions?.video_view / impressions) / (item.video_p25_watched_actions?.video_view / impressions)) : null) : null,
             // [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
             result: item?.[expr[0]]?.[expr[1]],
             cpr: item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
@@ -1518,7 +1531,7 @@ Your response must follow this exact JSON format:
     ]
 Just return json and nothing else.
 `;
-        console.log(prompt_code_part,"<<<<<<<<prompt_code_part")
+        console.log(prompt_code_part, "<<<<<<<<prompt_code_part")
         const data = {
             model: prompt_setting.model,
             messages: [
@@ -1550,7 +1563,7 @@ Just return json and nothing else.
 
         // Remove trailing commas before closing braces or brackets and remove newlines
         const contentFixed = output.replace(/,\s*([\}\]])/g, '$1').replace(/\n/g, '');
-        console.log(contentFixed,"<<<contentFixed")
+        console.log(contentFixed, "<<<contentFixed")
         // Assuming the output is valid JSON
         console.log(`result: ${contentFixed}`);
         return JSON.parse(contentFixed);
@@ -1797,30 +1810,30 @@ async function mainTask(params) {
         //     "$set": {"updatedAt": new Date()}
         // }, {upsert: true})).schema || [];
         const MetricsIDs = (await aggregateDocuments("metrics", [
-                {
-                    $match: {
-                        Ad_Name: {$exists: true, $ne: null},
-                        asset_id: {$exists: true, $ne: null},
-                        client_id: clientId
-                    }
-                },
-                {
-                    $project: {
-                        keyValue: {k: "$Ad_Name", v: "$asset_id"}
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        keyValues: {$push: "$keyValue"}
-                    }
-                },
-                {
-                    $replaceRoot: {
-                        newRoot: {$arrayToObject: "$keyValues"}
-                    }
+            {
+                $match: {
+                    Ad_Name: {$exists: true, $ne: null},
+                    asset_id: {$exists: true, $ne: null},
+                    client_id: clientId
                 }
-            ]))[0];
+            },
+            {
+                $project: {
+                    keyValue: {k: "$Ad_Name", v: "$asset_id"}
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    keyValues: {$push: "$keyValue"}
+                }
+            },
+            {
+                $replaceRoot: {
+                    newRoot: {$arrayToObject: "$keyValues"}
+                }
+            }
+        ]))[0];
         console.log("Getting ads ... ")
         const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
         const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id)
