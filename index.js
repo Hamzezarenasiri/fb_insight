@@ -520,7 +520,7 @@ let schema = [
     {
         "key": "momentum_rate",
         "is_default": true,
-        "title": "Momentum Rate (PSS)",
+        "title": "Momentum Rate",
         "description": "",
         "required": false,
         "type": "float",
