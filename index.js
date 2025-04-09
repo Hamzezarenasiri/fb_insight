@@ -527,7 +527,7 @@ let schema = [
         "similar_dictionary": ["momentum_rate"],
         "order_preference": "decs",
         "format": "percent",
-        "formula": "1 - ((video_p75_watched / impressions) / (video_p25_watched / impressions))"
+        "formula": "(video_p75_watched / video_p25_watched)"
     }
 ]
 
@@ -893,7 +893,7 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
             video_p75_watched: item.video_p75_watched_actions?.video_view || null,
             video_p95_watched: item.video_p95_watched_actions?.video_view || null,
             video_p100_watched: item.video_p100_watched_actions?.video_view || null,
-            momentum_rate: impressions ? ((item.video_p25_watched_actions?.video_view / impressions) ? 1 - ((item.video_p75_watched_actions?.video_view / impressions) / (item.video_p25_watched_actions?.video_view / impressions)) : null) : null,
+            momentum_rate: item.video_p25_watched_actions?.video_view ? item.video_p75_watched_actions?.video_view / item.video_p25_watched_actions?.video_view  : null,
             // [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
             result: item?.[expr[0]]?.[expr[1]],
             cpr: item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
