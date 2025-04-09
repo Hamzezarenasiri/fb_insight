@@ -523,8 +523,8 @@ let schema = [
         "title": "Momentum Rate (PSS)",
         "description": "",
         "required": false,
-        "type": "integer",
-        "similar_dictionary": [],
+        "type": "float",
+        "similar_dictionary": ["momentum_rate"],
         "order_preference": "decs",
         "format": "percent",
         "formula": "1 - ((video_p75_watched / impressions) / (video_p25_watched / impressions))"
