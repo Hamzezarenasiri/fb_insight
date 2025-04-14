@@ -2293,31 +2293,52 @@ function mergeArraysByAdName(arr1, arr2) {
         return mergedObj;
     });
 }
+
+function deepMerge(target, source) {
+    if (typeof target === "number" && typeof source === "number") {
+        return target + source;
+    }
+    if (
+        target &&
+        source &&
+        typeof target === "object" &&
+        typeof source === "object" &&
+        !Array.isArray(target) &&
+        !Array.isArray(source)
+    ) {
+        const keys = new Set([...Object.keys(target), ...Object.keys(source)]);
+        const result = {};
+        keys.forEach(key => {
+            if (key in target && key in source) {
+                result[key] = deepMerge(target[key], source[key]);
+            } else if (key in target) {
+                result[key] = target[key];
+            } else {
+                result[key] = source[key];
+            }
+        });
+        return result;
+    }
+    return target;
+}
+
 function aggregateByAdName(arr) {
     const groups = {};
-
     arr.forEach(item => {
-        const adName = item.ad_name;
+        const adName = item.Ad_Name;
         if (!groups[adName]) {
-            groups[adName] = { ...item };
+            groups[adName] = JSON.parse(JSON.stringify(item));
         } else {
             Object.keys(item).forEach(key => {
-                if (key === "ad_name") return;
-                if (typeof item[key] === "number") {
-                    if (typeof groups[adName][key] === "number") {
-                        groups[adName][key] += item[key];
-                    } else {
-                        groups[adName][key] = item[key];
-                    }
+                if (key === "Ad_Name") return;
+                if (groups[adName][key] === undefined) {
+                    groups[adName][key] = item[key];
                 } else {
-                    if (groups[adName][key] === undefined) {
-                        groups[adName][key] = item[key];
-                    }
+                    groups[adName][key] = deepMerge(groups[adName][key], item[key]);
                 }
             });
         }
     });
-
     return Object.values(groups);
 }
 
