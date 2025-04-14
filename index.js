@@ -2325,12 +2325,12 @@ function deepMerge(target, source) {
 function aggregateByAdName(arr) {
     const groups = {};
     arr.forEach(item => {
-        const adName = item.Ad_Name;
+        const adName = item.ad_name;
         if (!groups[adName]) {
             groups[adName] = JSON.parse(JSON.stringify(item));
         } else {
             Object.keys(item).forEach(key => {
-                if (key === "Ad_Name") return;
+                if (key === "ad_name") return;
                 if (groups[adName][key] === undefined) {
                     groups[adName][key] = item[key];
                 } else {
