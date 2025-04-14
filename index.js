@@ -854,9 +854,8 @@ FROM sonobellodata
 WHERE 
   "$path" = (SELECT latest_file FROM last_file)
   AND TRY(CAST(date_parse(opportunity_created_date, '%Y-%m-%d') AS DATE))
-    BETWEEN DATE '${start_date}' AND DATE '${end_date}'
-  AND "optional field 3" IN ('Facebook', 'Facebook Male')
-    GROUP BY "opportunity source code";
+      BETWEEN DATE '${start_date}' AND DATE '${end_date}'
+GROUP BY "opportunity source code";
   `;
     // Set the parameters for Athena query execution using environment variables for configuration
     const params = {
