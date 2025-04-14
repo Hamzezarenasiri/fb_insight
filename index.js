@@ -840,7 +840,7 @@ WITH last_file AS (
   LIMIT 1
 )
 SELECT
-  MIN("opportunity source name") AS ad_name,
+  ANY_VALUE("opportunity source name") AS ad_name,
   SUM(CAST(leads AS BIGINT)) AS lead,
   SUM(CAST(appointments AS BIGINT)) AS appts,
   SUM(CAST(shows AS BIGINT)) AS show,
