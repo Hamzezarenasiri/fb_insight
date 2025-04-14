@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import axios from 'axios';
 import {MongoClient, ObjectId} from 'mongodb';
+import AWS from 'aws-sdk';
+import * as fs from "node:fs";
 
 Sentry.init({
     dsn: "https://a51aca261c977758f4342257034a5d59@o1178736.ingest.us.sentry.io/4508958246043648",
@@ -528,13 +530,374 @@ let schema = [
         "order_preference": "decs",
         "format": "percent",
         "formula": "(video_p75_watched / video_p25_watched)"
+    },
+    {
+        "key": "cpgya",
+        "is_default": true,
+        "title": "CPGYA",
+        "description": "Cost per GYA",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Cost per Gya"
+        ],
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": "spend / (green_appts + yellow_appts)"
+    },
+    {
+        "key": "l2a",
+        "is_default": true,
+        "title": "L2A",
+        "description": "Lead to Appointment",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Lead to Appt",
+            "L2A"
+        ],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "appts / lead"
+    },
+    {
+        "key": "l2s",
+        "is_default": true,
+        "title": "L2S",
+        "description": "Lead to Sale",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Lead to Sale",
+            "L2S"
+        ],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "sold / lead"
+    },
+    {
+        "key": "l2c",
+        "is_default": true,
+        "title": "L2C",
+        "description": "Lead to Conversion",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Lead to Conversion"
+        ],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "show / lead"
+    },
+    {
+        "key": "s2s",
+        "is_default": true,
+        "title": "S2S",
+        "description": "Stage 2 to Sale conversion",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "S2S Conversion"
+        ],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "sold / show"
+    },
+    {
+        "key": "s2a",
+        "is_default": true,
+        "title": "S2A",
+        "description": "Stage 2 to Appointment conversion",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "S2A Conversion"
+        ],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "show / appts"
+    },
+    {
+        "key": "gya",
+        "is_default": true,
+        "title": "GYA",
+        "description": "GYA metric",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "GYA"
+        ],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "(green_appts + yellow_appts) / appts"
+    },
+    {
+        "key": "gyv",
+        "is_default": true,
+        "title": "GYV",
+        "description": "GYV metric",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "GYV"
+        ],
+        "order_preference": "acs",
+        "format": "number",
+        "formula": "green_appts + yellow_appts"
+    },
+    {
+        "key": "cpsold",
+        "is_default": true,
+        "title": "CPSOLD",
+        "description": "Cost per sold",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Cost per Sold"
+        ],
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": "spend / sold"
+    },
+    {
+        "key": "cpshow",
+        "is_default": true,
+        "title": "CPSHOW",
+        "description": "Cost per show",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Cost per Show"
+        ],
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": "spend / show"
+    },
+    {
+        "key": "cpappts",
+        "is_default": true,
+        "title": "CPAPPTS",
+        "description": "Cost per appointment",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Cost per Appointment"
+        ],
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": "spend / appts"
+    },
+    {
+        "key": "lead_cvr",
+        "is_default": true,
+        "title": "Lead CVR",
+        "description": "Lead conversion rate",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Lead Conversion Rate"
+        ],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "lead / link_clicks"
+    },
+    {
+        "key": "sold",
+        "is_default": true,
+        "title": "SOLD",
+        "description": "Number of final sales",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": [
+            "Sales",
+            "Sold"
+        ],
+        "order_preference": "acs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "show",
+        "is_default": true,
+        "title": "SHOW",
+        "description": "Customers showing up at the doctor's office",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": [
+            "Show"
+        ],
+        "order_preference": "acs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "appts",
+        "is_default": true,
+        "title": "APPTS",
+        "description": "Appointments",
+        "required": false,
+        "type": "integer",
+        "similar_dictionary": [
+            "Appointments"
+        ],
+        "order_preference": "acs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "green_appts",
+        "is_default": true,
+        "title": "Green Appointments",
+        "description": "Green Appointments",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Green Appointments"
+        ],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "yellow_appts",
+        "is_default": true,
+        "title": "Yellow Appointments",
+        "description": "Yellow Appointments",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Yellow Appointments"
+        ],
+        "order_preference": "decs",
+        "format": "number",
+        "formula": "N/A"
+    },
+    {
+        "key": "red_appts",
+        "is_default": true,
+        "title": "Red Appointments",
+        "description": "Red Appointments",
+        "required": false,
+        "type": "float",
+        "similar_dictionary": [
+            "Red Appointments"
+        ],
+        "order_preference": "acs",
+        "format": "number",
+        "formula": "N/A"
     }
 ]
-
+AWS.config.update({
+    region: process.env.AWS_REGION || 'us-east-1',
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+const athena = new AWS.Athena();
 const app = express();
 app.use(express.json());
 // Static authentication token
 const STATIC_TOKEN = 'KV5NfjBPaN9JDWqbDXrjQGoyeMtQWyfG16nTHmUPXFw='; // Replace with a secure, randomly generated token
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function transformAthenaResult(results) {
+    // Check if the results have at least one row (headers) and one data row.
+    const rows = results.ResultSet.Rows;
+    if (!rows || rows.length < 2) {
+        return [];
+    }
+
+    // Extract headers from the first row.
+    const headers = rows[0].Data.map(col => col.VarCharValue);
+
+    // Regex to check valid number string: optional sign, at least one digit, optional fraction.
+    const numericRegex = /^[+-]?\d+(\.\d+)?$/;
+
+    // Process the rest of the rows.
+    return rows.slice(1).map(row => {
+        const record = {};
+        row.Data.forEach((col, idx) => {
+            let value = col.VarCharValue;
+            // Only attempt conversion if value is non-empty.
+            if (value !== undefined && value !== null && value !== '') {
+                // If value matches the numeric regex, convert it to a number.
+                if (numericRegex.test(value)) {
+                    value = Number(value);
+                }
+            }
+            record[headers[idx]] = value;
+        });
+        return record;
+    });
+}// Function to run the Athena query
+const runAthenaQuery = async (start_date, end_date) => {
+    // Build the SQL query with the given date parameters.
+    // Note: Athena expects dates in the format DATE 'YYYY-MM-DD'
+    const query = `WITH last_file AS (
+        SELECT "$path" AS latest_file
+        FROM sonobellodata
+        ORDER BY "$path" DESC
+                       LIMIT 1
+                       )
+    SELECT
+        "opportunity source name" AS ad_name,
+        SUM(CAST(leads AS BIGINT)) AS lead,
+        SUM(CAST(appointments AS BIGINT)) AS appts,
+        SUM(CAST(shows AS BIGINT)) AS show,
+        SUM(CAST(sold AS BIGINT)) AS sold,
+        SUM(CAST(sales_price AS DECIMAL(10,2))) AS sales_price,
+        SUM(CAST(cash_collected AS DECIMAL(10,2))) AS cash_collected,
+        SUM(CAST(red_apps AS BIGINT)) AS red_appts,
+        SUM(CAST(yellow_apps AS BIGINT)) AS yellow_appts,
+        SUM(CAST(green_apps AS BIGINT)) AS green_appts
+    FROM sonobellodata
+    WHERE
+        "$path" = (SELECT latest_file FROM last_file)
+      AND TRY(CAST(date_parse(opportunity_created_date, '%Y-%m-%d') AS DATE))
+        BETWEEN DATE '${start_date}' AND DATE '${end_date}'
+      AND "optional field 3" IN ('Facebook', 'Facebook Male')
+    GROUP BY "opportunity source name"
+  `
+;
+    // Set the parameters for Athena query execution using environment variables for configuration
+    const params = {
+        QueryString: query,
+        QueryExecutionContext: {
+            Database: process.env.ATHENA_DATABASE
+        },
+        ResultConfiguration: {
+            OutputLocation: process.env.ATHENA_OUTPUT_LOCATION
+        }
+    };
+    try {
+        // Start the query execution
+        const { QueryExecutionId } = await athena.startQueryExecution(params).promise();
+        console.log(`Query submitted successfully. Execution ID: ${QueryExecutionId}`);
+
+        // Poll for query status until it is no longer RUNNING or QUEUED
+        let status = 'RUNNING';
+        while (status === 'RUNNING' || status === 'QUEUED') {
+            const {
+                QueryExecution: { Status }
+            } = await athena.getQueryExecution({ QueryExecutionId }).promise();
+            status = Status.State;
+            console.log(`Current query status: ${status}`);
+            if (status === 'RUNNING' || status === 'QUEUED') {
+                await sleep(2000); // Wait for 2 seconds before polling again
+            }
+        }
+
+        // Check query status and process results if the query succeeded
+        if (status === 'SUCCEEDED') {
+            let results = await athena.getQueryResults({ QueryExecutionId }).promise();
+            results = transformAthenaResult(results);
+            return results;
+        } else {
+            console.error(`Query did not succeed. Final status: ${status}`);
+        }
+    } catch (error) {
+        console.error('Error running query:', error);
+    }
+};
 
 // Authentication middleware
 const authenticate = (req, res, next) => {
@@ -750,6 +1113,201 @@ function convertListsToDict(data) {
     return data;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// 1) Parse formulas into a simple object describing
+//    whether it’s "divide", "divideThenMultiply", etc.
+////////////////////////////////////////////////////////////////////////////////
+function parseFormula(formula) {
+    if (!formula || formula === "N/A") return null;
+
+    // e.g. match patterns like:
+    //   "spend/link_clicks"
+    //   "(spend/link_clicks)*1000"
+    //   "video_views_3s/impressions"
+    //   etc.
+
+    const matchDivideThenMultiply = formula.match(/^\(?\s*([a-zA-Z0-9_]+)\s*\/\s*([a-zA-Z0-9_]+)\s*\)?\s*\*\s*([\d.]+)/);
+    if (matchDivideThenMultiply) {
+        const [, numerator, denominator, multiplier] = matchDivideThenMultiply;
+        return {
+            type: 'divideThenMultiply',
+            numerator,
+            denominator,
+            multiplier: parseFloat(multiplier)
+        };
+    }
+
+    // If it's just something like "A/B"
+    const matchDivide = formula.match(/^([a-zA-Z0-9_]+)\s*\/\s*([a-zA-Z0-9_]+)$/);
+    if (matchDivide) {
+        const [, numerator, denominator] = matchDivide;
+        return {
+            type: 'divide',
+            numerator,
+            denominator
+        };
+    }
+
+    // Otherwise, unrecognized
+    return null;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 2) Build forward calculators (key = formula).
+//    For example, if "cpc" = "spend/link_clicks",
+//    forwardCalc["cpc"](row) = row.spend / row.link_clicks
+////////////////////////////////////////////////////////////////////////////////
+function createForwardCalculator(formulaObj) {
+    if (!formulaObj) return null;
+
+    if (formulaObj.type === 'divideThenMultiply') {
+        const { numerator, denominator, multiplier } = formulaObj;
+        return (data) => {
+            const numVal = data[numerator];
+            const denVal = data[denominator];
+            if (numVal == null || denVal == null || denVal === 0) return null;
+            return (numVal / denVal) * multiplier;
+        };
+    }
+
+    if (formulaObj.type === 'divide') {
+        const { numerator, denominator } = formulaObj;
+        return (data) => {
+            const numVal = data[numerator];
+            const denVal = data[denominator];
+            if (numVal == null || denVal == null || denVal === 0) return null;
+            return numVal / denVal;
+        };
+    }
+
+    return null;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 3) Build reverse calculators for each formula.
+//    E.g. "ctr = link_clicks / impressions"
+//    => reverse for "impressions" = link_clicks / ctr
+//    => reverse for "link_clicks" = ctr * impressions
+////////////////////////////////////////////////////////////////////////////////
+function createReverseCalculators(fieldKey, formulaObj) {
+    const reverse = {};
+    if (!formulaObj) return reverse;
+
+    if (formulaObj.type === 'divide') {
+        const { numerator, denominator } = formulaObj;
+        // forward: fieldKey = numerator / denominator
+
+        // If we know fieldKey & denominator => numerator = fieldKey * denominator
+        reverse[numerator] = (data) => {
+            const fieldVal = data[fieldKey];
+            const denVal   = data[denominator];
+            if (fieldVal == null || denVal == null) return null;
+            return fieldVal * denVal;
+        };
+
+        // If we know fieldKey & numerator => denominator = numerator / fieldVal
+        reverse[denominator] = (data) => {
+            const fieldVal = data[fieldKey];
+            const numVal   = data[numerator];
+            if (fieldVal == null || numVal == null || fieldVal === 0) return null;
+            return numVal / fieldVal;
+        };
+    }
+    else if (formulaObj.type === 'divideThenMultiply') {
+        // forward: fieldKey = (numerator / denominator) * multiplier
+        const { numerator, denominator, multiplier } = formulaObj;
+
+        // If we know fieldKey & denominator => numerator = (fieldVal / multiplier) * denominator
+        reverse[numerator] = (data) => {
+            const fieldVal = data[fieldKey];
+            const denVal   = data[denominator];
+            if (fieldVal == null || denVal == null || multiplier === 0) return null;
+            return (fieldVal / multiplier) * denVal;
+        };
+
+        // If we know fieldKey & numerator => denominator = (numerator * multiplier) / fieldVal
+        reverse[denominator] = (data) => {
+            const fieldVal = data[fieldKey];
+            const numVal   = data[numerator];
+            if (fieldVal == null || numVal == null || fieldVal === 0) return null;
+            return (numVal * multiplier) / fieldVal;
+        };
+    }
+
+    return reverse;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 4) Build the entire set of forward and reverse calculators from the schema
+////////////////////////////////////////////////////////////////////////////////
+function buildCalculatorsFromSchema(schema) {
+    const forwardCalc = {};
+    const reverseCalc = {};
+
+    schema.forEach(item => {
+        const { key, formula } = item;
+        // parse
+        const parsed = parseFormula(formula);
+        // build forward function
+        forwardCalc[key] = createForwardCalculator(parsed);
+        // build reverse dictionary
+        reverseCalc[key] = createReverseCalculators(key, parsed);
+    });
+
+    return { forwardCalc, reverseCalc };
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 5) The main function that iterates multiple times over the data
+////////////////////////////////////////////////////////////////////////////////
+function fillMissingFields(rows, schema, maxIterations = 5) {
+    // Build forward and reverse calculators once
+    const { forwardCalc, reverseCalc } = buildCalculatorsFromSchema(schema);
+
+    let iteration = 0;
+    let somethingChanged = true;
+
+    while (iteration < maxIterations && somethingChanged) {
+        somethingChanged = false;
+
+        for (const row of rows) {
+            // Pass A: Forward calculations
+            for (const { key } of schema) {
+                if (row[key] == null && typeof forwardCalc[key] === 'function') {
+                    const val = forwardCalc[key](row);
+                    if (val != null) {
+                        row[key] = val;
+                        somethingChanged = true;
+                    }
+                }
+            }
+
+            // Pass B: Reverse calculations
+            // For each *missing* field, see if there's a known field that can produce it
+            for (const { key: missingKey } of schema) {
+                if (row[missingKey] == null) {
+                    // Check all possible "source" fields that might have a reverse formula
+                    schema.forEach(({ key: sourceKey }) => {
+                        // If sourceKey is known and it has a function to produce missingKey
+                        if (row[sourceKey] != null && reverseCalc[sourceKey] && typeof reverseCalc[sourceKey][missingKey] === 'function') {
+                            const val = reverseCalc[sourceKey][missingKey](row);
+                            if (val != null) {
+                                row[missingKey] = val;
+                                somethingChanged = true;
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        iteration++;
+    }
+
+    return rows;
+}
+
+
 const fetchAds = async (url, fbAccessToken) => {
     try {
         return await sendHttpRequest({
@@ -847,8 +1405,9 @@ const getAdsInsights = async (accountId, fbAccessToken, start_date, end_date, uu
     return insights;
 };
 
-function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
-    const expr = ad_objective_field_expr.split(".")
+function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFields = []) {
+    const expr = ad_objective_field_expr.split(".");
+
     return data.map((item) => {
         const {
             ad_name,
@@ -865,6 +1424,11 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
             ...restOfItem
         } = item;
 
+        const extraFieldsValues = extraFields.reduce((acc, field) => {
+            acc[field] = item[field];
+            return acc;
+        }, {});
+
         return {
             Ad_Name: ad_name || "null_name",
             impressions: impressions || null,
@@ -876,13 +1440,14 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
             cpm: cpm || null,
             link_click: item.actions?.link_click || null,
             purchase: item.actions?.purchase || null,
-            vvr: item.actions?.video_view / impressions || null,
-            hold: item.video_thruplay_watched_actions?.video_view / impressions || null,
+            vvr: impressions ? item.actions?.video_view / impressions : null,
+            hold: impressions ? item.video_thruplay_watched_actions?.video_view / impressions : null,
             cpa: item.cost_per_action_type?.purchase || null,
-            // cvr: item?.[expr[0]]?.[expr[1]] / item.actions?.link_click || null,
-            cvr: item.actions?.link_click ? (item?.[expr[0]]?.[expr[1]] ? item[expr[0]][expr[1]] / item.actions?.link_click : 0) : null,
+            cvr: item.actions?.link_click
+                ? (item?.[expr[0]]?.[expr[1]] ? item[expr[0]][expr[1]] / item.actions?.link_click : 0)
+                : null,
             roas: item.purchase_roas?.omni_purchase || null,
-            cpc: item.cost_per_action?.link_click || spend / item.actions?.link_click || null,
+            cpc: item.cost_per_action?.link_click || (item.actions?.link_click ? spend / item.actions?.link_click : null),
             cpl: item.cost_per_action?.lead || null,
             revenue: item.action_values?.purchase || null,
             video_view_3s: item.actions?.video_view || null,
@@ -901,6 +1466,7 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id) {
             ad_id,
             format,
             thumbnail_url: item.creative?.thumbnail_url,
+            ...extraFieldsValues,
             other_fields: {
                 ...restOfItem,
             },
@@ -1013,7 +1579,7 @@ function getPercentFields(arr) {
     return arr.filter(item => item.format === 'percent').map(item => item.key);
 }
 
-function parseFormula(formula) {
+function parseFormulaOld(formula) {
     const dependentFields = formula.match(/([a-zA-Z_]+)/g) || [];
     const formulaFunction = new Function(
         ...dependentFields,
@@ -1031,7 +1597,7 @@ function calculateMetrics(inputValues, metrics) {
     const dependencies = {};
     metrics.forEach(metric => {
         if (metric.formula !== "N/A") {
-            dependencies[metric.key] = parseFormula(metric.formula);
+            dependencies[metric.key] = parseFormulaOld(metric.formula);
         }
     });
 
@@ -1703,6 +2269,57 @@ Just return json and nothing else.
     }
 
 }
+function normalizeString(str) {
+    return str.replace(/\s+/g, ' ').trim();
+}
+
+function mergeArraysByAdName(arr1, arr2) {
+    return arr1.map(obj1 => {
+        const obj2 = arr2.find(item => normalizeString(item.ad_name) === normalizeString(obj1.ad_name));
+        const mergedObj = { ...obj1 };
+        if (obj2) {
+            Object.keys(obj1).forEach(key => {
+                if (typeof obj1[key] === "number") {
+                    const value2 = typeof obj2[key] === "number" ? obj2[key] : 0;
+                    mergedObj[key] = obj1[key] + value2;
+                }
+            });
+            Object.keys(obj2).forEach(key => {
+                if (!(key in mergedObj)) {
+                    mergedObj[key] = obj2[key];
+                }
+            });
+        }
+        return mergedObj;
+    });
+}
+function aggregateByAdName(arr) {
+    const groups = {};
+
+    arr.forEach(item => {
+        const adName = item.ad_name;
+        if (!groups[adName]) {
+            groups[adName] = { ...item };
+        } else {
+            Object.keys(item).forEach(key => {
+                if (key === "ad_name") return;
+                if (typeof item[key] === "number") {
+                    if (typeof groups[adName][key] === "number") {
+                        groups[adName][key] += item[key];
+                    } else {
+                        groups[adName][key] = item[key];
+                    }
+                } else {
+                    if (groups[adName][key] === undefined) {
+                        groups[adName][key] = item[key];
+                    }
+                }
+            });
+        }
+    });
+
+    return Object.values(groups);
+}
 
 async function mainTask(params) {
     let {
@@ -1835,8 +2452,11 @@ async function mainTask(params) {
             }
         ]))[0];
         console.log("Getting ads ... ")
-        const results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
-        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id)
+        let results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
+        results = aggregateByAdName(results);
+        const athena_result = await runAthenaQuery(start_date,end_date);
+        results = mergeArraysByAdName(results,athena_result)
+        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id,["lead","appts","show","sold","green_appts","yellow_appts","red_appts",])
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url",].includes(item));
         const tableColumns = transformObjects(schema);
@@ -1883,7 +2503,8 @@ async function mainTask(params) {
             schema: [...new Set(schema)],
         };
         const import_list_inserted = await insertOneDocument("imported_lists", importListDocument);
-        const newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted);
+        let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted);
+        newDataArray= fillMissingFields(newDataArray,schema)
         const PercentkeysToCheck = getPercentFields(metrics);
         const keysToCheck = await findDocuments("import_schema", {type: {$in: ["float", "integer"]}}, {key: 1, _id: 0});
         let res = NormalizeNumberObjects(newDataArray, keysToCheck);
@@ -2097,16 +2718,16 @@ app.listen(PORT, () => {
 // console.log(await mainTask(
 //     {
 //         fbAccessToken: "EAAYXHibjFxoBO6vxBI78V3tdAbSkxT5WbqiFUjUc4pCsal5b35r1ZC6rZCSQV4FYSgsJxKqv1EvC03ZAKVu6dAAAzLnHFDZCoZBLy1s826iv54IKD1Ie3mkf6LzDWvihtRu1iECkW3eNvDEdeNseXhaF0QGBzplGZA4NhrubpDw4Ye9d7y35o0loBRZASepixlB5aJaUvzL7LIdiFOugs7ZAnmiNAWBeYLGwOEjBbOZABmugviaztQAZDZD",
-//         FBadAccountId: "act_555176035960035",
-//         start_date: "2025-03-29",
-//         end_date: "2025-03-30",
+//         FBadAccountId: "act_70970029",
+//         start_date: "2025-03-10",
+//         end_date: "2025-04-06",
 //         agencyId: "6656208cdb5d669b53cc98c5",
 //         clientId: "67d306be742ef319388d07d1",
 //         userId: "66b03f924a9351d9433dca51",
-//         importListName: "Lancer Skincare (US) BACKUP PMT-2Days",
-//         uuid: "82676d40-10d8-4175-a15d-597f2bd64da5",
-//         ad_objective_id: "landing_page_views",
-//         ad_objective_field_expr: "actions.landing_page_view"
+//         importListName: "SonoBCCF1",
+//         uuid: "82676d40-10d8-4175-a15d-597f2bd64da4",
+//         ad_objective_id: "leads_all",
+//         ad_objective_field_expr: "actions.lead"
 //     }
 // ))
 
