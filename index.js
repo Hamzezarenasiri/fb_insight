@@ -840,17 +840,16 @@ WITH last_file AS (
   LIMIT 1
 )
 SELECT
-  "opportunity source code", 
-  ANY_VALUE("opportunity source name") AS "ad_name",
+  MIN("opportunity source name") AS ad_name,
   SUM(CAST(leads AS BIGINT)) AS lead,
   SUM(CAST(appointments AS BIGINT)) AS appts,
   SUM(CAST(shows AS BIGINT)) AS show,
   SUM(CAST(sold AS BIGINT)) AS sold,
   SUM(CAST(sales_price AS DECIMAL(10,2))) AS sales_price,
-  SUM(CAST(cash_collected AS DECIMAL(10,2))) AS cash_collected
-    SUM(CAST(red_apps AS BIGINT)) AS red_appts,
-    SUM(CAST(yellow_apps AS BIGINT)) AS yellow_appts,
-    SUM(CAST(green_apps AS BIGINT)) AS green_appts
+  SUM(CAST(cash_collected AS DECIMAL(10,2))) AS cash_collected,
+  SUM(CAST(red_apps AS BIGINT)) AS red_appts,
+  SUM(CAST(yellow_apps AS BIGINT)) AS yellow_appts,
+  SUM(CAST(green_apps AS BIGINT)) AS green_appts
 FROM sonobellodata
 WHERE 
   "$path" = (SELECT latest_file FROM last_file)
@@ -858,9 +857,7 @@ WHERE
     BETWEEN DATE '${start_date}' AND DATE '${end_date}'
   AND "optional field 3" IN ('Facebook', 'Facebook Male')
     GROUP BY "opportunity source code";
-
-  `
-;
+  `;
     // Set the parameters for Athena query execution using environment variables for configuration
     const params = {
         QueryString: query,
