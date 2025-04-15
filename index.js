@@ -840,6 +840,7 @@ WITH last_file AS (
   LIMIT 1
 )
 SELECT
+  "opportunity source code" AS code,
   ANY_VALUE("opportunity source name") AS ad_name,
   SUM(CAST(leads AS BIGINT)) AS lead,
   SUM(CAST(appointments AS BIGINT)) AS appts,
@@ -854,9 +855,8 @@ FROM sonobellodata
 WHERE 
   "$path" = (SELECT latest_file FROM last_file)
   AND TRY(CAST(date_parse(opportunity_created_date, '%Y-%m-%d') AS DATE))
-      BETWEEN DATE '${start_date}' AND DATE '${end_date}'
-GROUP BY "opportunity source code";
-  `;
+    BETWEEN DATE '${start_date}' AND DATE '${end_date}'
+GROUP BY  "opportunity source code";  `;
     // Set the parameters for Athena query execution using environment variables for configuration
     const params = {
         QueryString: query,
@@ -2271,27 +2271,21 @@ Just return json and nothing else.
 function normalizeString(str) {
   return str.replace(/[\s_-]/g, '').toLowerCase();
 }
-
 function mergeArraysByAdName(arr1, arr2) {
-    return arr1.map(obj1 => {
-        const obj2 = arr2.find(item => normalizeString(item.ad_name) === normalizeString(obj1.ad_name));
-        const mergedObj = { ...obj1 };
-        if (obj2) {
-            Object.keys(obj1).forEach(key => {
-                if (typeof obj1[key] === "number") {
-                    const value2 = typeof obj2[key] === "number" ? obj2[key] : 0;
-                    mergedObj[key] = obj1[key] + value2;
-                }
-            });
-            Object.keys(obj2).forEach(key => {
-                if (!(key in mergedObj)) {
-                    mergedObj[key] = obj2[key];
-                }
-            });
+    const lookup = arr2.reduce((acc, item) => {
+        acc[item.code] = item;
+        return acc;
+    }, {});
+
+    return arr1.map(item => {
+        const code = item.Ad_Name.split('_')[0];
+        if (lookup[code]) {
+            return { ...item, ...lookup[code] };
         }
-        return mergedObj;
+        return item;
     });
 }
+
 
 function deepMerge(target, source) {
     if (typeof target === "number" && typeof source === "number") {
