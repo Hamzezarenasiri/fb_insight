@@ -2278,7 +2278,7 @@ function mergeArraysByAdName(arr1, arr2) {
     }, {});
 
     return arr1.map(item => {
-        const code = item.Ad_Name.split('_')[0];
+        const code = item.ad_name.split('_')[0];
         if (lookup[code]) {
             return { ...item, ...lookup[code] };
         }
