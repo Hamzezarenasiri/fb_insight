@@ -4,7 +4,6 @@ import express from 'express';
 import axios from 'axios';
 import {MongoClient, ObjectId} from 'mongodb';
 import AWS from 'aws-sdk';
-import * as fs from "node:fs";
 
 Sentry.init({
     dsn: "https://a51aca261c977758f4342257034a5d59@o1178736.ingest.us.sentry.io/4508958246043648",
@@ -12,6 +11,8 @@ Sentry.init({
 dotenv.config();
 const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v22.0";
+const fluxAPIBaseUrl = "https://flux-api.afarin.top";
+const fluxAPIkey = process.env.FLUX_STATIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const client = new MongoClient(uri, {
     family: 4  // Force IPv4
@@ -799,6 +800,7 @@ app.use(express.json());
 const STATIC_TOKEN = 'KV5NfjBPaN9JDWqbDXrjQGoyeMtQWyfG16nTHmUPXFw='; // Replace with a secure, randomly generated token
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function transformAthenaResult(results) {
     // Check if the results have at least one row (headers) and one data row.
     const rows = results.ResultSet.Rows;
@@ -833,30 +835,27 @@ const runAthenaQuery = async (start_date, end_date) => {
     // Build the SQL query with the given date parameters.
     // Note: Athena expects dates in the format DATE 'YYYY-MM-DD'
     const query = `
-WITH last_file AS (
-  SELECT "$path" AS latest_file
-  FROM sonobellodata
-  ORDER BY "$path" DESC
-  LIMIT 1
-)
-SELECT
-  "opportunity source code" AS code,
-  ANY_VALUE("opportunity source name") AS ad_name,
-  SUM(CAST(leads AS BIGINT)) AS lead,
-  SUM(CAST(appointments AS BIGINT)) AS appts,
-  SUM(CAST(shows AS BIGINT)) AS show,
-  SUM(CAST(sold AS BIGINT)) AS sold,
-  SUM(CAST(sales_price AS DECIMAL(10,2))) AS sales_price,
-  SUM(CAST(cash_collected AS DECIMAL(10,2))) AS cash_collected,
-  SUM(CAST(red_apps AS BIGINT)) AS red_appts,
-  SUM(CAST(yellow_apps AS BIGINT)) AS yellow_appts,
-  SUM(CAST(green_apps AS BIGINT)) AS green_appts
-FROM sonobellodata
-WHERE 
-  "$path" = (SELECT latest_file FROM last_file)
-  AND TRY(CAST(date_parse(opportunity_created_date, '%Y-%m-%d') AS DATE))
-    BETWEEN DATE '${start_date}' AND DATE '${end_date}'
-GROUP BY  "opportunity source code";  `;
+        WITH last_file AS (SELECT "$path" AS latest_file
+                           FROM sonobellodata
+                           ORDER BY "$path" DESC
+            LIMIT 1
+            )
+        SELECT "opportunity source code"                   AS code,
+               ANY_VALUE("opportunity source name")        AS ad_name,
+               SUM(CAST(leads AS BIGINT))                  AS lead,
+               SUM(CAST(appointments AS BIGINT))           AS appts,
+               SUM(CAST(shows AS BIGINT))                  AS show,
+               SUM(CAST(sold AS BIGINT))                   AS sold,
+               SUM(CAST(sales_price AS DECIMAL(10, 2)))    AS sales_price,
+               SUM(CAST(cash_collected AS DECIMAL(10, 2))) AS cash_collected,
+               SUM(CAST(red_apps AS BIGINT))               AS red_appts,
+               SUM(CAST(yellow_apps AS BIGINT))            AS yellow_appts,
+               SUM(CAST(green_apps AS BIGINT))             AS green_appts
+        FROM sonobellodata
+        WHERE "$path" = (SELECT latest_file FROM last_file)
+          AND TRY(CAST(date_parse(opportunity_created_date, '%Y-%m-%d') AS DATE))
+            BETWEEN DATE '${start_date}' AND DATE '${end_date}'
+        GROUP BY "opportunity source code";  `;
     // Set the parameters for Athena query execution using environment variables for configuration
     const params = {
         QueryString: query,
@@ -869,15 +868,15 @@ GROUP BY  "opportunity source code";  `;
     };
     try {
         // Start the query execution
-        const { QueryExecutionId } = await athena.startQueryExecution(params).promise();
+        const {QueryExecutionId} = await athena.startQueryExecution(params).promise();
         console.log(`Query submitted successfully. Execution ID: ${QueryExecutionId}`);
 
         // Poll for query status until it is no longer RUNNING or QUEUED
         let status = 'RUNNING';
         while (status === 'RUNNING' || status === 'QUEUED') {
             const {
-                QueryExecution: { Status }
-            } = await athena.getQueryExecution({ QueryExecutionId }).promise();
+                QueryExecution: {Status}
+            } = await athena.getQueryExecution({QueryExecutionId}).promise();
             status = Status.State;
             console.log(`Current query status: ${status}`);
             if (status === 'RUNNING' || status === 'QUEUED') {
@@ -887,7 +886,7 @@ GROUP BY  "opportunity source code";  `;
 
         // Check query status and process results if the query succeeded
         if (status === 'SUCCEEDED') {
-            let results = await athena.getQueryResults({ QueryExecutionId }).promise();
+            let results = await athena.getQueryResults({QueryExecutionId}).promise();
             results = transformAthenaResult(results);
             return results;
         } else {
@@ -945,10 +944,10 @@ async function insertMany(collectionName, documents) {
     }
 }
 
-async function findOneDocument(collectionName, query, projection = {}) {
+async function findOneDocument(collectionName, query, projection = {}, sort = {}) {
     try {
         const collection = await connectToCollection(collectionName);
-        return await collection.findOne(query, {projection});
+        return await collection.findOne(query, {projection, sort});
     } catch (error) {
         console.error("Error finding one document: ", error);
         throw error;
@@ -1160,7 +1159,7 @@ function createForwardCalculator(formulaObj) {
     if (!formulaObj) return null;
 
     if (formulaObj.type === 'divideThenMultiply') {
-        const { numerator, denominator, multiplier } = formulaObj;
+        const {numerator, denominator, multiplier} = formulaObj;
         return (data) => {
             const numVal = data[numerator];
             const denVal = data[denominator];
@@ -1170,7 +1169,7 @@ function createForwardCalculator(formulaObj) {
     }
 
     if (formulaObj.type === 'divide') {
-        const { numerator, denominator } = formulaObj;
+        const {numerator, denominator} = formulaObj;
         return (data) => {
             const numVal = data[numerator];
             const denVal = data[denominator];
@@ -1193,13 +1192,13 @@ function createReverseCalculators(fieldKey, formulaObj) {
     if (!formulaObj) return reverse;
 
     if (formulaObj.type === 'divide') {
-        const { numerator, denominator } = formulaObj;
+        const {numerator, denominator} = formulaObj;
         // forward: fieldKey = numerator / denominator
 
         // If we know fieldKey & denominator => numerator = fieldKey * denominator
         reverse[numerator] = (data) => {
             const fieldVal = data[fieldKey];
-            const denVal   = data[denominator];
+            const denVal = data[denominator];
             if (fieldVal == null || denVal == null) return null;
             return fieldVal * denVal;
         };
@@ -1207,19 +1206,18 @@ function createReverseCalculators(fieldKey, formulaObj) {
         // If we know fieldKey & numerator => denominator = numerator / fieldVal
         reverse[denominator] = (data) => {
             const fieldVal = data[fieldKey];
-            const numVal   = data[numerator];
+            const numVal = data[numerator];
             if (fieldVal == null || numVal == null || fieldVal === 0) return null;
             return numVal / fieldVal;
         };
-    }
-    else if (formulaObj.type === 'divideThenMultiply') {
+    } else if (formulaObj.type === 'divideThenMultiply') {
         // forward: fieldKey = (numerator / denominator) * multiplier
-        const { numerator, denominator, multiplier } = formulaObj;
+        const {numerator, denominator, multiplier} = formulaObj;
 
         // If we know fieldKey & denominator => numerator = (fieldVal / multiplier) * denominator
         reverse[numerator] = (data) => {
             const fieldVal = data[fieldKey];
-            const denVal   = data[denominator];
+            const denVal = data[denominator];
             if (fieldVal == null || denVal == null || multiplier === 0) return null;
             return (fieldVal / multiplier) * denVal;
         };
@@ -1227,7 +1225,7 @@ function createReverseCalculators(fieldKey, formulaObj) {
         // If we know fieldKey & numerator => denominator = (numerator * multiplier) / fieldVal
         reverse[denominator] = (data) => {
             const fieldVal = data[fieldKey];
-            const numVal   = data[numerator];
+            const numVal = data[numerator];
             if (fieldVal == null || numVal == null || fieldVal === 0) return null;
             return (numVal * multiplier) / fieldVal;
         };
@@ -1244,7 +1242,7 @@ function buildCalculatorsFromSchema(schema) {
     const reverseCalc = {};
 
     schema.forEach(item => {
-        const { key, formula } = item;
+        const {key, formula} = item;
         // parse
         const parsed = parseFormula(formula);
         // build forward function
@@ -1253,7 +1251,7 @@ function buildCalculatorsFromSchema(schema) {
         reverseCalc[key] = createReverseCalculators(key, parsed);
     });
 
-    return { forwardCalc, reverseCalc };
+    return {forwardCalc, reverseCalc};
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1261,7 +1259,7 @@ function buildCalculatorsFromSchema(schema) {
 ////////////////////////////////////////////////////////////////////////////////
 function fillMissingFields(rows, schema, maxIterations = 5) {
     // Build forward and reverse calculators once
-    const { forwardCalc, reverseCalc } = buildCalculatorsFromSchema(schema);
+    const {forwardCalc, reverseCalc} = buildCalculatorsFromSchema(schema);
 
     let iteration = 0;
     let somethingChanged = true;
@@ -1271,7 +1269,7 @@ function fillMissingFields(rows, schema, maxIterations = 5) {
 
         for (const row of rows) {
             // Pass A: Forward calculations
-            for (const { key } of schema) {
+            for (const {key} of schema) {
                 if (row[key] == null && typeof forwardCalc[key] === 'function') {
                     const val = forwardCalc[key](row);
                     if (val != null) {
@@ -1283,10 +1281,10 @@ function fillMissingFields(rows, schema, maxIterations = 5) {
 
             // Pass B: Reverse calculations
             // For each *missing* field, see if there's a known field that can produce it
-            for (const { key: missingKey } of schema) {
+            for (const {key: missingKey} of schema) {
                 if (row[missingKey] == null) {
                     // Check all possible "source" fields that might have a reverse formula
-                    schema.forEach(({ key: sourceKey }) => {
+                    schema.forEach(({key: sourceKey}) => {
                         // If sourceKey is known and it has a function to produce missingKey
                         if (row[sourceKey] != null && reverseCalc[sourceKey] && typeof reverseCalc[sourceKey][missingKey] === 'function') {
                             const val = reverseCalc[sourceKey][missingKey](row);
@@ -1457,7 +1455,7 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             video_p75_watched: item.video_p75_watched_actions?.video_view || null,
             video_p95_watched: item.video_p95_watched_actions?.video_view || null,
             video_p100_watched: item.video_p100_watched_actions?.video_view || null,
-            momentum_rate: item.video_p25_watched_actions?.video_view ? item.video_p75_watched_actions?.video_view / item.video_p25_watched_actions?.video_view  : null,
+            momentum_rate: item.video_p25_watched_actions?.video_view ? item.video_p75_watched_actions?.video_view / item.video_p25_watched_actions?.video_view : null,
             // [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
             result: item?.[expr[0]]?.[expr[1]],
             cpr: item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
@@ -2268,9 +2266,11 @@ Just return json and nothing else.
     }
 
 }
+
 function normalizeString(str) {
-  return str.replace(/[\s_-]/g, '').toLowerCase();
+    return str.replace(/[\s_-]/g, '').toLowerCase();
 }
+
 function mergeArraysByAdName(arr1, arr2) {
     const lookup = arr2.reduce((acc, item) => {
         acc[item.code] = item;
@@ -2280,7 +2280,7 @@ function mergeArraysByAdName(arr1, arr2) {
     return arr1.map(item => {
         const code = item.ad_name.split('_')[0];
         if (lookup[code]) {
-            return { ...item, ...lookup[code] };
+            return {...item, ...lookup[code]};
         }
         return item;
     });
@@ -2335,6 +2335,35 @@ function aggregateByAdName(arr) {
     return Object.values(groups);
 }
 
+async function tagging(importListId, clientId, ai) {
+    const assets_ids_tagging = (await findDocuments(
+        "metrics",
+        {
+            client_id: clientId,
+            import_list_id: importListId,
+        },
+        {asset_id: 1,_id:0}
+    )).map((doc) => doc.asset_id.toString());
+    const payload = {
+        ai: ai,
+        asset_ids: assets_ids_tagging,
+        imported_list_id: importListId,
+        force_update_tags: false,
+        force_update_description: false,
+        force_update_transcription: false
+    }
+    await axios.post(
+        `${fluxAPIBaseUrl}/tagging-task/bulk_tag`,
+        payload,
+        {
+            headers: {
+                'x-api-key': fluxAPIkey,
+                'Content-Type': 'application/json',
+            }
+        }
+    )
+}
+
 async function mainTask(params) {
     let {
         start_date,
@@ -2347,7 +2376,8 @@ async function mainTask(params) {
         importListName,
         uuid,
         ad_objective_id,
-        ad_objective_field_expr
+        ad_objective_field_expr,
+        ai = null
     } = params;
 
     try {
@@ -2468,9 +2498,9 @@ async function mainTask(params) {
         console.log("Getting ads ... ")
         let results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
         results = aggregateByAdName(results);
-        const athena_result = await runAthenaQuery(start_date,end_date);
-        results = mergeArraysByAdName(results,athena_result)
-        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id,["lead","appts","show","sold","green_appts","yellow_appts","red_appts",])
+        const athena_result = await runAthenaQuery(start_date, end_date);
+        results = mergeArraysByAdName(results, athena_result)
+        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts",])
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url",].includes(item));
         const tableColumns = transformObjects(schema);
@@ -2518,7 +2548,7 @@ async function mainTask(params) {
         };
         const import_list_inserted = await insertOneDocument("imported_lists", importListDocument);
         let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted);
-        newDataArray= fillMissingFields(newDataArray,schema)
+        newDataArray = fillMissingFields(newDataArray, schema)
         const PercentkeysToCheck = getPercentFields(metrics);
         const keysToCheck = await findDocuments("import_schema", {type: {$in: ["float", "integer"]}}, {key: 1, _id: 0});
         let res = NormalizeNumberObjects(newDataArray, keysToCheck);
@@ -2683,6 +2713,9 @@ async function mainTask(params) {
         })
         await updateMessagesAndLinks(uuid, clientId)
         await generateProduct(uuid, clientId, agencyId)
+        if (ai) {
+            await tagging(import_list_inserted.insertedId, clientId, ai)
+        }
         await saveFacebookImportStatus(uuid, {
             status: "success",
             percentage: 100
