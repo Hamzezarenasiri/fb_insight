@@ -2392,7 +2392,8 @@ async function mainTask(params) {
             "is_default": true,
             "similar_dictionary": [
                 "cpr",
-                "cost per result",],
+                "cost per result",
+            ],
             "order_preference": "acs",
             "format": "currency",
             "formula": `spend / result`
