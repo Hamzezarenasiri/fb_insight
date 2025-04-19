@@ -2378,7 +2378,7 @@ async function mainTask(params) {
         uuid,
         ad_objective_id,
         ad_objective_field_expr,
-        ai = null
+        ai
     } = params;
 
     try {
@@ -2764,20 +2764,20 @@ app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-console.log(await mainTask(
-    {
-        fbAccessToken: "EAAYXHibjFxoBO6vxBI78V3tdAbSkxT5WbqiFUjUc4pCsal5b35r1ZC6rZCSQV4FYSgsJxKqv1EvC03ZAKVu6dAAAzLnHFDZCoZBLy1s826iv54IKD1Ie3mkf6LzDWvihtRu1iECkW3eNvDEdeNseXhaF0QGBzplGZA4NhrubpDw4Ye9d7y35o0loBRZASepixlB5aJaUvzL7LIdiFOugs7ZAnmiNAWBeYLGwOEjBbOZABmugviaztQAZDZD",
-        FBadAccountId: "act_70970029",
-        start_date: "2025-03-10",
-        end_date: "2025-04-10",
-        agencyId: "6656208cdb5d669b53cc98c5",
-        clientId: "67d306be742ef319388d07d1",
-        userId: "66b03f924a9351d9433dca51",
-        importListName: "SonoBCCF1",
-        uuid: "82676d40-10d8-4175-a15d-597f2bd64da4",
-        ad_objective_id: "leads_all",
-        ad_objective_field_expr: "actions.lead",
-        ai: "gemini"
-    }
-))
+// console.log(await mainTask(
+//     {
+//         fbAccessToken: "EAAYXHibjFxoBO6vxBI78V3tdAbSkxT5WbqiFUjUc4pCsal5b35r1ZC6rZCSQV4FYSgsJxKqv1EvC03ZAKVu6dAAAzLnHFDZCoZBLy1s826iv54IKD1Ie3mkf6LzDWvihtRu1iECkW3eNvDEdeNseXhaF0QGBzplGZA4NhrubpDw4Ye9d7y35o0loBRZASepixlB5aJaUvzL7LIdiFOugs7ZAnmiNAWBeYLGwOEjBbOZABmugviaztQAZDZD",
+//         FBadAccountId: "act_70970029",
+//         start_date: "2025-03-10",
+//         end_date: "2025-04-10",
+//         agencyId: "6656208cdb5d669b53cc98c5",
+//         clientId: "67d306be742ef319388d07d1",
+//         userId: "66b03f924a9351d9433dca51",
+//         importListName: "SonoBCCF1",
+//         uuid: "82676d40-10d8-4175-a15d-597f2bd64da4",
+//         ad_objective_id: "leads_all",
+//         ad_objective_field_expr: "actions.lead",
+//         ai: "gemini"
+//     }
+// ))
 
