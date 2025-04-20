@@ -2217,8 +2217,8 @@ Just return json and nothing else.
             $replaceRoot: {newRoot: {$arrayToObject: "$categories"}}
         },
     ]);
-    let startProgress = 60;
-    const endProgress = 65;
+    let startProgress = 50;
+    const endProgress = 60;
     const totalTasks = funnels.length;
     const progressIncrement = (endProgress - startProgress) / totalTasks;
     let currentProgress = startProgress;
