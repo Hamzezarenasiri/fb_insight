@@ -2267,10 +2267,6 @@ Just return json and nothing else.
 
 }
 
-function normalizeString(str) {
-    return str.replace(/[\s_-]/g, '').toLowerCase();
-}
-
 function mergeArraysByAdName(arr1, arr2) {
     const lookup = arr2.reduce((acc, item) => {
         acc[item.code] = item;
@@ -2285,7 +2281,6 @@ function mergeArraysByAdName(arr1, arr2) {
         return item;
     });
 }
-
 
 function deepMerge(target, source) {
     if (typeof target === "number" && typeof source === "number") {
@@ -2352,7 +2347,6 @@ async function tagging(importListId, clientId, ai) {
         force_update_description: false,
         force_update_transcription: false
     }
-    console.log(payload,"<<<<<<<<<PAyload")
     return await axios.post(
         `${fluxAPIBaseUrl}/tagging-task/bulk_tag`,
         payload,
@@ -2549,6 +2543,9 @@ async function mainTask(params) {
             schema: [...new Set(schema)],
         };
         const import_list_inserted = await insertOneDocument("imported_lists", importListDocument);
+        await saveFacebookImportStatus(uuid, {
+            import_list_id: import_list_inserted.insertedId,
+        })
         let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted);
         newDataArray = fillMissingFields(newDataArray, schema)
         const PercentkeysToCheck = getPercentFields(metrics);
@@ -2717,7 +2714,6 @@ async function mainTask(params) {
         await generateProduct(uuid, clientId, agencyId)
         if (ai) {
             const response = await tagging(import_list_inserted.insertedId, clientId, ai)
-            console.log(response,"<<<<<<<<<<<<<Response")
         }
         await saveFacebookImportStatus(uuid, {
             status: "success",
