@@ -1760,10 +1760,13 @@ async function saveFacebookImportStatus(uuid, updateValues) {
     const collectionName = 'facebook_imports';
     const filter = {uuid};
     updateValues.updatedAt = new Date()
-    const update = {
+
+    let update = {
         $set: updateValues
     };
-
+    if('status' in updateValues){
+        update.$addToSet={status_history:updateValues.status}
+    }
     try {
         const result = await updateOneDocument(collectionName, filter, update);
         console.log("Facebook import status saved successfully:", result);
@@ -1914,8 +1917,8 @@ async function updateMessagesAndLinks(uuid, clientId) {
         },
         {_id: 1, ad_id: 1}
     );
-    let startProgress = 30;
-    const endProgress = 70;
+    let startProgress = 20;
+    const endProgress = 50;
     const totalTasks = assets.length;
     const progressIncrement = (endProgress - startProgress) / totalTasks;
     let currentProgress = startProgress;
@@ -2138,8 +2141,8 @@ Just return json and nothing else.
         const chunkSize = 50;
         const chunks = chunkArray(assets_links, chunkSize);
         const allResults = [];
-        let startProgress = 70;
-        const endProgress = 89;
+        let startProgress = 50;
+        const endProgress = 60;
         const totalTasks = chunks.length;
         const progressIncrement = (endProgress - startProgress) / totalTasks;
         let currentProgress = startProgress;
@@ -2184,8 +2187,6 @@ Just return json and nothing else.
                 }
             }
         }
-
-
         // }
     }
     let jackpot = await aggregateDocuments("tags", [
@@ -2216,8 +2217,8 @@ Just return json and nothing else.
             $replaceRoot: {newRoot: {$arrayToObject: "$categories"}}
         },
     ]);
-    let startProgress = 90;
-    const endProgress = 99;
+    let startProgress = 60;
+    const endProgress = 65;
     const totalTasks = funnels.length;
     const progressIncrement = (endProgress - startProgress) / totalTasks;
     let currentProgress = startProgress;
@@ -2708,17 +2709,18 @@ async function mainTask(params) {
         }
         await saveFacebookImportStatus(uuid, {
             status: "Analyzing imported data",
-            percentage: 30
+            percentage: 20
         })
         await updateMessagesAndLinks(uuid, clientId)
         await generateProduct(uuid, clientId, agencyId)
         if (ai) {
             const response = await tagging(import_list_inserted.insertedId, clientId, ai)
+        }else {
+            await saveFacebookImportStatus(uuid, {
+                status: "success",
+                percentage: 100
+            })
         }
-        await saveFacebookImportStatus(uuid, {
-            status: "success",
-            percentage: 100
-        })
     } catch (error) {
         console.error("An error occurred:", error);
         await saveFacebookImportStatus(uuid, {
