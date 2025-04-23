@@ -1111,193 +1111,152 @@ function convertListsToDict(data) {
     return data;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// 1) Parse formulas into a simple object describing
-//    whether it’s "divide", "divideThenMultiply", etc.
-////////////////////////////////////////////////////////////////////////////////
-function parseFormula(formula) {
-    if (!formula || formula === "N/A") return null;
+// A safe AST‐based formula compiler in plain JavaScript, with support for + - * / **, parentheses, and sqr(x).
 
-    // e.g. match patterns like:
-    //   "spend/link_clicks"
-    //   "(spend/link_clicks)*1000"
-    //   "video_views_3s/impressions"
-    //   etc.
+// You’ll need to install/acquire a JS parser like acorn:
+//    npm install acorn
+import { parseExpressionAt } from "acorn";
 
-    const matchDivideThenMultiply = formula.match(/^\(?\s*([a-zA-Z0-9_]+)\s*\/\s*([a-zA-Z0-9_]+)\s*\)?\s*\*\s*([\d.]+)/);
-    if (matchDivideThenMultiply) {
-        const [, numerator, denominator, multiplier] = matchDivideThenMultiply;
-        return {
-            type: 'divideThenMultiply',
-            numerator,
-            denominator,
-            multiplier: parseFloat(multiplier)
-        };
-    }
+const ALLOWED_BINARY_OPS = new Set(["+", "-", "*", "/", "**"]);
+const ALLOWED_UNARY_OPS = new Set(["+", "-"]);
+const ALLOWED_FUNCTIONS = {
+    sqr: (x) => x * x,
+};
 
-    // If it's just something like "A/B"
-    const matchDivide = formula.match(/^([a-zA-Z0-9_]+)\s*\/\s*([a-zA-Z0-9_]+)$/);
-    if (matchDivide) {
-        const [, numerator, denominator] = matchDivide;
-        return {
-            type: 'divide',
-            numerator,
-            denominator
-        };
-    }
-
-    // Otherwise, unrecognized
-    return null;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// 2) Build forward calculators (key = formula).
-//    For example, if "cpc" = "spend/link_clicks",
-//    forwardCalc["cpc"](row) = row.spend / row.link_clicks
-////////////////////////////////////////////////////////////////////////////////
-function createForwardCalculator(formulaObj) {
-    if (!formulaObj) return null;
-
-    if (formulaObj.type === 'divideThenMultiply') {
-        const {numerator, denominator, multiplier} = formulaObj;
-        return (data) => {
-            const numVal = data[numerator];
-            const denVal = data[denominator];
-            if (numVal == null || denVal == null || denVal === 0) return null;
-            return (numVal / denVal) * multiplier;
-        };
-    }
-
-    if (formulaObj.type === 'divide') {
-        const {numerator, denominator} = formulaObj;
-        return (data) => {
-            const numVal = data[numerator];
-            const denVal = data[denominator];
-            if (numVal == null || denVal == null || denVal === 0) return null;
-            return numVal / denVal;
-        };
-    }
-
-    return null;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// 3) Build reverse calculators for each formula.
-//    E.g. "ctr = link_clicks / impressions"
-//    => reverse for "impressions" = link_clicks / ctr
-//    => reverse for "link_clicks" = ctr * impressions
-////////////////////////////////////////////////////////////////////////////////
-function createReverseCalculators(fieldKey, formulaObj) {
-    const reverse = {};
-    if (!formulaObj) return reverse;
-
-    if (formulaObj.type === 'divide') {
-        const {numerator, denominator} = formulaObj;
-        // forward: fieldKey = numerator / denominator
-
-        // If we know fieldKey & denominator => numerator = fieldKey * denominator
-        reverse[numerator] = (data) => {
-            const fieldVal = data[fieldKey];
-            const denVal = data[denominator];
-            if (fieldVal == null || denVal == null) return null;
-            return fieldVal * denVal;
-        };
-
-        // If we know fieldKey & numerator => denominator = numerator / fieldVal
-        reverse[denominator] = (data) => {
-            const fieldVal = data[fieldKey];
-            const numVal = data[numerator];
-            if (fieldVal == null || numVal == null || fieldVal === 0) return null;
-            return numVal / fieldVal;
-        };
-    } else if (formulaObj.type === 'divideThenMultiply') {
-        // forward: fieldKey = (numerator / denominator) * multiplier
-        const {numerator, denominator, multiplier} = formulaObj;
-
-        // If we know fieldKey & denominator => numerator = (fieldVal / multiplier) * denominator
-        reverse[numerator] = (data) => {
-            const fieldVal = data[fieldKey];
-            const denVal = data[denominator];
-            if (fieldVal == null || denVal == null || multiplier === 0) return null;
-            return (fieldVal / multiplier) * denVal;
-        };
-
-        // If we know fieldKey & numerator => denominator = (numerator * multiplier) / fieldVal
-        reverse[denominator] = (data) => {
-            const fieldVal = data[fieldKey];
-            const numVal = data[numerator];
-            if (fieldVal == null || numVal == null || fieldVal === 0) return null;
-            return (numVal * multiplier) / fieldVal;
-        };
-    }
-
-    return reverse;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// 4) Build the entire set of forward and reverse calculators from the schema
-////////////////////////////////////////////////////////////////////////////////
-function buildCalculatorsFromSchema(schema) {
-    const forwardCalc = {};
-    const reverseCalc = {};
-
-    schema.forEach(item => {
-        const {key, formula} = item;
-        // parse
-        const parsed = parseFormula(formula);
-        // build forward function
-        forwardCalc[key] = createForwardCalculator(parsed);
-        // build reverse dictionary
-        reverseCalc[key] = createReverseCalculators(key, parsed);
-    });
-
-    return {forwardCalc, reverseCalc};
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// 5) The main function that iterates multiple times over the data
-////////////////////////////////////////////////////////////////////////////////
-function fillMissingFields(rows, schema, maxIterations = 5) {
-    // Build forward and reverse calculators once
-    const {forwardCalc, reverseCalc} = buildCalculatorsFromSchema(schema);
-
-    let iteration = 0;
-    let somethingChanged = true;
-
-    while (iteration < maxIterations && somethingChanged) {
-        somethingChanged = false;
-
-        for (const row of rows) {
-            // Pass A: Forward calculations
-            for (const {key} of schema) {
-                if (row[key] == null && typeof forwardCalc[key] === 'function') {
-                    const val = forwardCalc[key](row);
-                    if (val != null) {
-                        row[key] = val;
-                        somethingChanged = true;
-                    }
-                }
+function validateNode(node) {
+    switch (node.type) {
+        case "Literal":
+            if (typeof node.value !== "number") {
+                throw new Error(`Non-numeric literal: ${node.value}`);
             }
+            break;
 
-            // Pass B: Reverse calculations
-            // For each *missing* field, see if there's a known field that can produce it
-            for (const {key: missingKey} of schema) {
-                if (row[missingKey] == null) {
-                    // Check all possible "source" fields that might have a reverse formula
-                    schema.forEach(({key: sourceKey}) => {
-                        // If sourceKey is known and it has a function to produce missingKey
-                        if (row[sourceKey] != null && reverseCalc[sourceKey] && typeof reverseCalc[sourceKey][missingKey] === 'function') {
-                            const val = reverseCalc[sourceKey][missingKey](row);
-                            if (val != null) {
-                                row[missingKey] = val;
-                                somethingChanged = true;
-                            }
-                        }
-                    });
-                }
+        case "Identifier":
+            // variable lookup is allowed
+            break;
+
+        case "BinaryExpression":
+            if (!ALLOWED_BINARY_OPS.has(node.operator)) {
+                throw new Error(`Unsupported operator: ${node.operator}`);
+            }
+            validateNode(node.left);
+            validateNode(node.right);
+            break;
+
+        case "UnaryExpression":
+            if (!ALLOWED_UNARY_OPS.has(node.operator)) {
+                throw new Error(`Unsupported unary operator: ${node.operator}`);
+            }
+            validateNode(node.argument);
+            break;
+
+        case "CallExpression":
+            if (
+                node.callee.type !== "Identifier" ||
+                !(node.callee.name in ALLOWED_FUNCTIONS) ||
+                node.arguments.length !== 1
+            ) {
+                throw new Error(`Unsupported function call: ${node.callee.name}`);
+            }
+            validateNode(node.arguments[0]);
+            break;
+
+        case "ExpressionStatement":
+            validateNode(node.expression);
+            break;
+
+        default:
+            throw new Error(`Unsupported syntax node: ${node.type}`);
+    }
+}
+
+function evaluateNode(node, row) {
+    switch (node.type) {
+        case "Literal":
+            return node.value;
+
+        case "Identifier":
+            return row[node.name];
+
+        case "BinaryExpression": {
+            const l = evaluateNode(node.left, row);
+            const r = evaluateNode(node.right, row);
+            if (l == null || r == null) return null;
+            switch (node.operator) {
+                case "+": return l + r;
+                case "-": return l - r;
+                case "*": return l * r;
+                case "/": return r === 0 ? null : l / r;
+                case "**": return Math.pow(l, r);
             }
         }
 
+        case "UnaryExpression": {
+            const v = evaluateNode(node.argument, row);
+            if (v == null) return null;
+            return node.operator === "-" ? -v : +v;
+        }
+
+        case "CallExpression": {
+            const fn = ALLOWED_FUNCTIONS[node.callee.name];
+            const arg = evaluateNode(node.arguments[0], row);
+            if (arg == null) return null;
+            return fn(arg);
+        }
+
+        default:
+            return null; // should never reach
+    }
+}
+
+function compileFormula(expr) {
+    // parse the expression at position 0
+    const node = parseExpressionAt(expr, 0, { ecmaVersion: 2020 });
+    validateNode(node);
+    return (row) => {
+        try {
+            return evaluateNode(node, row);
+        } catch {
+            return null;
+        }
+    };
+}
+
+export function buildForwardCalculators(schema) {
+    const forward = {};
+    for (const { key, formula } of schema) {
+        if (!formula || formula.toUpperCase() === "N/A") {
+            forward[key] = null;
+        } else {
+            try {
+                forward[key] = compileFormula(formula);
+            } catch (err) {
+                console.warn(`Invalid formula for ${key}: ${err.message}`);
+                forward[key] = null;
+            }
+        }
+    }
+    return forward;
+}
+
+export function fillMissingFields(rows, schema, maxIterations = 5) {
+    const forward = buildForwardCalculators(schema);
+    let iteration = 0;
+
+    while (iteration < maxIterations) {
+        let changed = false;
+        for (const row of rows) {
+            for (const { key } of schema) {
+                if (row[key] == null && typeof forward[key] === "function") {
+                    const val = forward[key](row);
+                    if (val != null) {
+                        row[key] = val;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if (!changed) break;
         iteration++;
     }
 
