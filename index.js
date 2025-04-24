@@ -1350,7 +1350,7 @@ const getAdsInsights = async (accountId, fbAccessToken, start_date, end_date, uu
 
         const insightsBatchRequests = adIds.map((adId) => ({
             method: "GET",
-            relative_url: `${adId}/insights?level=ad&fields=${FIELDS}`,
+            relative_url: `${adId}/insights?level=ad&fields=${FIELDS}&time_range={"since":"${start_date}","until":"${end_date}"}`,
         }));
 
         const adDetailBatchRequests = adIds.map((adId) => ({
