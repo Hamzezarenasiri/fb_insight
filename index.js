@@ -2280,39 +2280,39 @@ function mergeArraysByAdName(arr1, arr2) {
     });
 }
 
-function aggregateByAdName(arr) {
-    const groups = {};
-    arr.forEach(item => {
-        const name = item.ad_name;
-        if (!groups[name]) {
-            groups[name] = JSON.parse(JSON.stringify(item));
-        } else {
-            groups[name] = mergeAggregate(groups[name], item);
-        }
-    });
-    return Object.values(groups);
+function aggregateByCode(arr) {
+  const groups = {};
+  arr.forEach(item => {
+    const code = item.ad_name.split('_')[0];
+    if (!groups[code]) {
+      groups[code] = JSON.parse(JSON.stringify(item));
+    } else {
+      groups[code] = mergeAggregate(groups[code], item);
+    }
+  });
+  return Object.values(groups);
 }
 
 function mergeAggregate(obj1, obj2) {
-    Object.keys(obj2).forEach(key => {
-        if (key === 'ad_name') return;
-        const v2 = obj2[key];
-        const v1 = obj1[key];
-        if (Array.isArray(v2)) {
-            if (v1 === undefined) obj1[key] = v2;
-        } else if (v2 !== null && typeof v2 === 'object') {
-            if (v1 === undefined) obj1[key] = JSON.parse(JSON.stringify(v2));
-            else obj1[key] = mergeAggregate(v1, v2);
-        } else if (typeof v2 === 'number') {
-            const skip = /^(?:cost_per_|cpm$|cpc$|cpp$|ctr$|.*_ctr$)/.test(key);
-            if (!skip) obj1[key] = (typeof v1 === 'number' ? v1 : 0) + v2;
-            else if (v1 === undefined) obj1[key] = v2;
-        } else if (typeof v2 === 'string') {
-            if (v1 === undefined) obj1[key] = v2;
-        }
-    });
-    return obj1;
+  Object.keys(obj2).forEach(key => {
+    if (key === 'ad_name') return;
+    const v2 = obj2[key], v1 = obj1[key];
+    if (Array.isArray(v2)) {
+      if (v1 === undefined) obj1[key] = v2;
+    } else if (v2 && typeof v2 === 'object') {
+      if (v1 === undefined) obj1[key] = JSON.parse(JSON.stringify(v2));
+      else obj1[key] = mergeAggregate(v1, v2);
+    } else if (typeof v2 === 'number') {
+      const skip = /^(?:cost_per_|cpm$|cpc$|cpp$|ctr$|.*_ctr$)/.test(key);
+      if (!skip) obj1[key] = (typeof v1 === 'number' ? v1 : 0) + v2;
+      else if (v1 === undefined) obj1[key] = v2;
+    } else if (typeof v2 === 'string') {
+      if (v1 === undefined) obj1[key] = v2;
+    }
+  });
+  return obj1;
 }
+
 
 
 async function tagging(importListId, clientId, ai) {
@@ -2456,7 +2456,7 @@ async function mainTask(params) {
             ...item,
             uuid
         })))
-        results = aggregateByAdName(results);
+        results = aggregateByCode(results);
         const athena_result = await runAthenaQuery(start_date, end_date);
         await insertMany("athena_result", athena_result.map(item => ({
             ...item,
