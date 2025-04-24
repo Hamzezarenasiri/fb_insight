@@ -118,7 +118,7 @@ const FIELDS = [
     "website_ctr",
     "website_purchase_roas",
 ].join(",");
-let schema = [
+let default_schema = [
     {
         "key": "Ad_Name",
         "title": "Ad Name",
@@ -786,6 +786,39 @@ let schema = [
         "order_preference": "acs",
         "format": "number",
         "formula": "N/A"
+    }, {
+        "key": "cpr",
+        "title": "CPR",
+        "type": "float",
+        "required": false,
+        "description": "CPR is the cost per Result.",
+        "is_default": true,
+        "similar_dictionary": [
+            "cpr",
+            "cost per result",
+        ],
+        "order_preference": "acs",
+        "format": "currency",
+        "formula": `spend / result`
+        // "formula" : `(spend / ${ad_objective_id})`
+    }, {
+        "key": "cvr",
+        "title": "CVR",
+        "type": "float",
+        "required": false,
+        "description": "CVR is the conversion rate, which is the percentage of users who completed a desired action after clicking on your ad.",
+        "is_default": true,
+        "similar_dictionary": [
+            "Conversion Rate",
+            "cvr",
+            "conv rate",
+            "conversions rate",
+            "action rate",
+            "goal rate"
+        ],
+        "order_preference": "decs",
+        "format": "percent",
+        "formula": "result / link_clicks"
     }
 ]
 AWS.config.update({
@@ -1115,7 +1148,7 @@ function convertListsToDict(data) {
 
 // You’ll need to install/acquire a JS parser like acorn:
 //    npm install acorn
-import { parseExpressionAt } from "acorn";
+import {parseExpressionAt} from "acorn";
 
 const ALLOWED_BINARY_OPS = new Set(["+", "-", "*", "/", "**"]);
 const ALLOWED_UNARY_OPS = new Set(["+", "-"]);
@@ -1183,11 +1216,16 @@ function evaluateNode(node, row) {
             const r = evaluateNode(node.right, row);
             if (l == null || r == null) return null;
             switch (node.operator) {
-                case "+": return l + r;
-                case "-": return l - r;
-                case "*": return l * r;
-                case "/": return r === 0 ? null : l / r;
-                case "**": return Math.pow(l, r);
+                case "+":
+                    return l + r;
+                case "-":
+                    return l - r;
+                case "*":
+                    return l * r;
+                case "/":
+                    return r === 0 ? null : l / r;
+                case "**":
+                    return Math.pow(l, r);
             }
         }
 
@@ -1211,7 +1249,7 @@ function evaluateNode(node, row) {
 
 function compileFormula(expr) {
     // parse the expression at position 0
-    const node = parseExpressionAt(expr, 0, { ecmaVersion: 2020 });
+    const node = parseExpressionAt(expr, 0, {ecmaVersion: 2020});
     validateNode(node);
     return (row) => {
         try {
@@ -1224,7 +1262,7 @@ function compileFormula(expr) {
 
 export function buildForwardCalculators(schema) {
     const forward = {};
-    for (const { key, formula } of schema) {
+    for (const {key, formula} of schema) {
         if (!formula || formula.toUpperCase() === "N/A") {
             forward[key] = null;
         } else {
@@ -1246,7 +1284,7 @@ export function fillMissingFields(rows, schema, maxIterations = 5) {
     while (iteration < maxIterations) {
         let changed = false;
         for (const row of rows) {
-            for (const { key } of schema) {
+            for (const {key} of schema) {
                 if (row[key] == null && typeof forward[key] === "function") {
                     const val = forward[key](row);
                     if (val != null) {
@@ -1605,18 +1643,18 @@ function cleanData(value, defaultValue = null) {
     return value.toString().replace(/[\$,%]/g, '');
 }
 
-function getFieldType(fieldKey) {
+function getFieldType(fieldKey, schema) {
     const field = schema?.find(item => item.key === fieldKey);
     return field ? field.type : null;
 }
 
-function processRow(row, mappedColumns) {
+function processRow(row, mappedColumns, schema) {
     const newRow = {};
     Object.keys(mappedColumns).forEach(dbColumn => {
         const Header = mappedColumns[dbColumn];
         if (Header) {
             if (row.hasOwnProperty(Header)) {
-                const fieldType = getFieldType(dbColumn);
+                const fieldType = getFieldType(dbColumn, schema);
                 let cleanedData = cleanData(row[Header]);
 
                 switch (fieldType) {
@@ -1641,9 +1679,9 @@ function processRow(row, mappedColumns) {
     return newRow;
 }
 
-function processData(Data, mappedColumns, metrics, agencyId, clientId, userId, import_list_inserted) {
+function processData(Data, mappedColumns, metrics, agencyId, clientId, userId, import_list_inserted, schema) {
     return Data.map(row => {
-        let newRow = processRow(row, mappedColumns);
+        let newRow = processRow(row, mappedColumns, schema);
         newRow = calculateMetrics(newRow, metrics);
         newRow.agency_id = agencyId;
         newRow.client_id = clientId;
@@ -1723,8 +1761,8 @@ async function saveFacebookImportStatus(uuid, updateValues) {
     let update = {
         $set: updateValues
     };
-    if('status' in updateValues){
-        update.$addToSet={status_history:updateValues.status}
+    if ('status' in updateValues) {
+        update.$addToSet = {status_history: updateValues.status}
     }
     try {
         const result = await updateOneDocument(collectionName, filter, update);
@@ -2297,7 +2335,7 @@ async function tagging(importListId, clientId, ai) {
             client_id: clientId,
             import_list_id: importListId,
         },
-        {asset_id: 1,_id:0}
+        {asset_id: 1, _id: 0}
     )).map((doc) => doc.asset_id.toString());
     const payload = {
         ai: ai,
@@ -2334,44 +2372,21 @@ async function mainTask(params) {
         ad_objective_field_expr,
         ai
     } = params;
+    agencyId = new ObjectId(agencyId);
+    clientId = new ObjectId(clientId);
+    userId = new ObjectId(userId);
+    let defined_schema = await findOneDocument("defined_schemas", {
+        client_id: clientId, "schema": {"$exists":true, "$ne": []},
+    })
+    let schema = []
+    if (defined_schema) {
+        schema = defined_schema.schema;
+    }else{
+        schema = defined_schema;
 
+    }
     try {
         console.log("start ....", params)
-        schema.push({
-            "key": "cpr",
-            "title": "CPR",
-            "type": "float",
-            "required": false,
-            "description": "CPR is the cost per Result.",
-            "is_default": true,
-            "similar_dictionary": [
-                "cpr",
-                "cost per result",
-            ],
-            "order_preference": "acs",
-            "format": "currency",
-            "formula": `spend / result`
-            // "formula" : `(spend / ${ad_objective_id})`
-        })
-        schema.push({
-            "key": "cvr",
-            "title": "CVR",
-            "type": "float",
-            "required": false,
-            "description": "CVR is the conversion rate, which is the percentage of users who completed a desired action after clicking on your ad.",
-            "is_default": true,
-            "similar_dictionary": [
-                "Conversion Rate",
-                "cvr",
-                "conv rate",
-                "conversions rate",
-                "action rate",
-                "goal rate"
-            ],
-            "order_preference": "decs",
-            "format": "percent",
-            "formula": "result / link_clicks"
-        },)
         schema.push({
             "key": "result",
             "second_key": ad_objective_id,
@@ -2395,9 +2410,6 @@ async function mainTask(params) {
         //     "format" : "number",
         //     "formula" : "N/A"
         // })
-        agencyId = new ObjectId(agencyId);
-        clientId = new ObjectId(clientId);
-        userId = new ObjectId(userId);
         // await generateProduct(uuid, clientId, agencyId)
         // return
         await saveFacebookImportStatus(uuid, {
@@ -2506,7 +2518,7 @@ async function mainTask(params) {
         await saveFacebookImportStatus(uuid, {
             import_list_id: import_list_inserted.insertedId,
         })
-        let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted);
+        let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted, schema);
         newDataArray = fillMissingFields(newDataArray, schema)
         const PercentkeysToCheck = getPercentFields(metrics);
         const keysToCheck = await findDocuments("import_schema", {type: {$in: ["float", "integer"]}}, {key: 1, _id: 0});
@@ -2674,7 +2686,7 @@ async function mainTask(params) {
         await generateProduct(uuid, clientId, agencyId)
         if (ai) {
             const response = await tagging(import_list_inserted.insertedId, clientId, ai)
-        }else {
+        } else {
             await saveFacebookImportStatus(uuid, {
                 status: "success",
                 percentage: 100
