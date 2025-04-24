@@ -2471,8 +2471,16 @@ async function mainTask(params) {
         ]))[0];
         console.log("Getting ads ... ")
         let results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
+        await insertMany("fb_insights", results.map(item => ({
+            ...item,
+            uuid
+        })))
         results = aggregateByAdName(results);
         const athena_result = await runAthenaQuery(start_date, end_date);
+        await insertMany("athena_result", athena_result.map(item => ({
+            ...item,
+            uuid
+        })))
         results = mergeArraysByAdName(results, athena_result)
         const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts",])
         const exist_fields = findNonEmptyKeys(ads)
