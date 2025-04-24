@@ -2379,14 +2379,12 @@ async function mainTask(params) {
         client_id: clientId, "schema": {"$exists":true, "$ne": []},
     })
     let schema = []
-    console.log(defined_schema,"<<<<<<<<<<<<<defined_schema")
     if (defined_schema) {
         schema = defined_schema.schema;
     }else{
         schema = default_schema;
 
     }
-    console.log(schema,"<<<<<<<<<<<<<schema")
     try {
         console.log("start ....", params)
         schema.push({
