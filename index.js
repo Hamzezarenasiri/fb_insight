@@ -2381,7 +2381,7 @@ async function mainTask(params) {
     let schema = []
     console.log(defined_schema,"<<<<<<<<<<<<<defined_schema")
     if (defined_schema) {
-         = defined_schema.schema;
+        schema = defined_schema.schema;
     }else{
         schema = default_schema;
 
