@@ -2310,23 +2310,29 @@ function deepMerge(target, source) {
 
 function aggregateByAdName(arr) {
     const groups = {};
+
     arr.forEach(item => {
         const adName = item.ad_name;
         if (!groups[adName]) {
             groups[adName] = JSON.parse(JSON.stringify(item));
         } else {
-            Object.keys(item).forEach(key => {
-                if (key === "ad_name") return;
-                if (groups[adName][key] === undefined) {
-                    groups[adName][key] = item[key];
+            Object.entries(item).forEach(([key, value]) => {
+                if (key === 'ad_name') return;
+                const existing = groups[adName][key];
+                if (typeof existing === 'number' && typeof value === 'number') {
+                    groups[adName][key] = existing + value;
+                } else if (existing === undefined) {
+                    groups[adName][key] = value;
                 } else {
-                    groups[adName][key] = deepMerge(groups[adName][key], item[key]);
+                    groups[adName][key] = deepMerge(existing, value);
                 }
             });
         }
     });
+
     return Object.values(groups);
 }
+
 
 async function tagging(importListId, clientId, ai) {
     const assets_ids_tagging = (await findDocuments(
