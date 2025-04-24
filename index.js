@@ -2280,57 +2280,38 @@ function mergeArraysByAdName(arr1, arr2) {
     });
 }
 
-function deepMerge(target, source) {
-    if (typeof target === "number" && typeof source === "number") {
-        return target + source;
-    }
-    if (
-        target &&
-        source &&
-        typeof target === "object" &&
-        typeof source === "object" &&
-        !Array.isArray(target) &&
-        !Array.isArray(source)
-    ) {
-        const keys = new Set([...Object.keys(target), ...Object.keys(source)]);
-        const result = {};
-        keys.forEach(key => {
-            if (key in target && key in source) {
-                result[key] = deepMerge(target[key], source[key]);
-            } else if (key in target) {
-                result[key] = target[key];
-            } else {
-                result[key] = source[key];
-            }
-        });
-        return result;
-    }
-    return target;
-}
-
 function aggregateByAdName(arr) {
     const groups = {};
-
     arr.forEach(item => {
-        const adName = item.ad_name;
-        if (!groups[adName]) {
-            groups[adName] = JSON.parse(JSON.stringify(item));
+        const name = item.ad_name;
+        if (!groups[name]) {
+            groups[name] = JSON.parse(JSON.stringify(item));
         } else {
-            Object.entries(item).forEach(([key, value]) => {
-                if (key === 'ad_name') return;
-                const existing = groups[adName][key];
-                if (typeof existing === 'number' && typeof value === 'number') {
-                    groups[adName][key] = existing + value;
-                } else if (existing === undefined) {
-                    groups[adName][key] = value;
-                } else {
-                    groups[adName][key] = deepMerge(existing, value);
-                }
-            });
+            groups[name] = mergeAggregate(groups[name], item);
         }
     });
-
     return Object.values(groups);
+}
+
+function mergeAggregate(obj1, obj2) {
+    Object.keys(obj2).forEach(key => {
+        if (key === 'ad_name') return;
+        const v2 = obj2[key];
+        const v1 = obj1[key];
+        if (Array.isArray(v2)) {
+            if (v1 === undefined) obj1[key] = v2;
+        } else if (v2 !== null && typeof v2 === 'object') {
+            if (v1 === undefined) obj1[key] = JSON.parse(JSON.stringify(v2));
+            else obj1[key] = mergeAggregate(v1, v2);
+        } else if (typeof v2 === 'number') {
+            const skip = /^(?:cost_per_|cpm$|cpc$|cpp$|ctr$|.*_ctr$)/.test(key);
+            if (!skip) obj1[key] = (typeof v1 === 'number' ? v1 : 0) + v2;
+            else if (v1 === undefined) obj1[key] = v2;
+        } else if (typeof v2 === 'string') {
+            if (v1 === undefined) obj1[key] = v2;
+        }
+    });
+    return obj1;
 }
 
 
