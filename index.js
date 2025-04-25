@@ -2314,7 +2314,6 @@ function mergeAggregate(obj1, obj2) {
 }
 
 
-
 async function tagging(importListId, clientId, ai) {
     const assets_ids_tagging = (await findDocuments(
         "metrics",
@@ -2456,18 +2455,19 @@ async function mainTask(params) {
             ...item,
             uuid
         })))
-        results = aggregateByCode(results);
-        const athena_result = await runAthenaQuery(start_date, end_date);
-        await insertMany("athena_result", athena_result.map(item => ({
-            ...item,
-            uuid
-        })))
-        results = mergeArraysByAdName(results, athena_result)
-        await insertMany("merged_results", results.map(item => ({
-            ...item,
-            uuid
-        })))
-
+        if (["act_70970029","act_1474898293329309"].includes(FBadAccountId)) {
+            results = aggregateByCode(results);
+            const athena_result = await runAthenaQuery(start_date, end_date);
+            await insertMany("athena_result", athena_result.map(item => ({
+                ...item,
+                uuid
+            })))
+            results = mergeArraysByAdName(results, athena_result)
+            await insertMany("merged_results", results.map(item => ({
+                ...item,
+                uuid
+            })))
+        }
         const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts",])
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url",].includes(item));
