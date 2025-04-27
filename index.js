@@ -533,260 +533,6 @@ let default_schema = [
         "formula": "(video_p75_watched / video_p25_watched)"
     },
     {
-        "key": "cpgya",
-        "is_default": true,
-        "title": "CPGYA",
-        "description": "Cost per GYA",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Cost per Gya"
-        ],
-        "order_preference": "acs",
-        "format": "currency",
-        "formula": "spend / (green_appts + yellow_appts)"
-    },
-    {
-        "key": "l2a",
-        "is_default": true,
-        "title": "L2A",
-        "description": "Lead to Appointment",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Lead to Appt",
-            "L2A"
-        ],
-        "order_preference": "decs",
-        "format": "percent",
-        "formula": "appts / lead"
-    },
-    {
-        "key": "l2s",
-        "is_default": true,
-        "title": "L2S",
-        "description": "Lead to Sale",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Lead to Sale",
-            "L2S"
-        ],
-        "order_preference": "decs",
-        "format": "percent",
-        "formula": "sold / lead"
-    },
-    {
-        "key": "l2c",
-        "is_default": true,
-        "title": "L2C",
-        "description": "Lead to Conversion",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Lead to Conversion"
-        ],
-        "order_preference": "decs",
-        "format": "percent",
-        "formula": "show / lead"
-    },
-    {
-        "key": "s2s",
-        "is_default": true,
-        "title": "S2S",
-        "description": "Stage 2 to Sale conversion",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "S2S Conversion"
-        ],
-        "order_preference": "decs",
-        "format": "percent",
-        "formula": "sold / show"
-    },
-    {
-        "key": "s2a",
-        "is_default": true,
-        "title": "S2A",
-        "description": "Stage 2 to Appointment conversion",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "S2A Conversion"
-        ],
-        "order_preference": "decs",
-        "format": "percent",
-        "formula": "show / appts"
-    },
-    {
-        "key": "gya",
-        "is_default": true,
-        "title": "GYA",
-        "description": "GYA metric",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "GYA"
-        ],
-        "order_preference": "decs",
-        "format": "percent",
-        "formula": "(green_appts + yellow_appts) / appts"
-    },
-    {
-        "key": "gyv",
-        "is_default": true,
-        "title": "GYV",
-        "description": "GYV metric",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "GYV"
-        ],
-        "order_preference": "acs",
-        "format": "number",
-        "formula": "green_appts + yellow_appts"
-    },
-    {
-        "key": "cpsold",
-        "is_default": true,
-        "title": "CPSOLD",
-        "description": "Cost per sold",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Cost per Sold"
-        ],
-        "order_preference": "acs",
-        "format": "currency",
-        "formula": "spend / sold"
-    },
-    {
-        "key": "cpshow",
-        "is_default": true,
-        "title": "CPSHOW",
-        "description": "Cost per show",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Cost per Show"
-        ],
-        "order_preference": "acs",
-        "format": "currency",
-        "formula": "spend / show"
-    },
-    {
-        "key": "cpappts",
-        "is_default": true,
-        "title": "CPAPPTS",
-        "description": "Cost per appointment",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Cost per Appointment"
-        ],
-        "order_preference": "acs",
-        "format": "currency",
-        "formula": "spend / appts"
-    },
-    {
-        "key": "lead_cvr",
-        "is_default": true,
-        "title": "Lead CVR",
-        "description": "Lead conversion rate",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Lead Conversion Rate"
-        ],
-        "order_preference": "decs",
-        "format": "percent",
-        "formula": "lead / link_clicks"
-    },
-    {
-        "key": "sold",
-        "is_default": true,
-        "title": "SOLD",
-        "description": "Number of final sales",
-        "required": false,
-        "type": "integer",
-        "similar_dictionary": [
-            "Sales",
-            "Sold"
-        ],
-        "order_preference": "acs",
-        "format": "number",
-        "formula": "N/A"
-    },
-    {
-        "key": "show",
-        "is_default": true,
-        "title": "SHOW",
-        "description": "Customers showing up at the doctor's office",
-        "required": false,
-        "type": "integer",
-        "similar_dictionary": [
-            "Show"
-        ],
-        "order_preference": "acs",
-        "format": "number",
-        "formula": "N/A"
-    },
-    {
-        "key": "appts",
-        "is_default": true,
-        "title": "APPTS",
-        "description": "Appointments",
-        "required": false,
-        "type": "integer",
-        "similar_dictionary": [
-            "Appointments"
-        ],
-        "order_preference": "acs",
-        "format": "number",
-        "formula": "N/A"
-    },
-    {
-        "key": "green_appts",
-        "is_default": true,
-        "title": "Green Appointments",
-        "description": "Green Appointments",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Green Appointments"
-        ],
-        "order_preference": "decs",
-        "format": "number",
-        "formula": "N/A"
-    },
-    {
-        "key": "yellow_appts",
-        "is_default": true,
-        "title": "Yellow Appointments",
-        "description": "Yellow Appointments",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Yellow Appointments"
-        ],
-        "order_preference": "decs",
-        "format": "number",
-        "formula": "N/A"
-    },
-    {
-        "key": "red_appts",
-        "is_default": true,
-        "title": "Red Appointments",
-        "description": "Red Appointments",
-        "required": false,
-        "type": "float",
-        "similar_dictionary": [
-            "Red Appointments"
-        ],
-        "order_preference": "acs",
-        "format": "number",
-        "formula": "N/A"
-    }, {
         "key": "cpr",
         "title": "CPR",
         "type": "float",
@@ -2281,36 +2027,36 @@ function mergeArraysByAdName(arr1, arr2) {
 }
 
 function aggregateByCode(arr) {
-  const groups = {};
-  arr.forEach(item => {
-    const code = item.ad_name.split('_')[0];
-    if (!groups[code]) {
-      groups[code] = JSON.parse(JSON.stringify(item));
-    } else {
-      groups[code] = mergeAggregate(groups[code], item);
-    }
-  });
-  return Object.values(groups);
+    const groups = {};
+    arr.forEach(item => {
+        const code = item.ad_name.split('_')[0];
+        if (!groups[code]) {
+            groups[code] = JSON.parse(JSON.stringify(item));
+        } else {
+            groups[code] = mergeAggregate(groups[code], item);
+        }
+    });
+    return Object.values(groups);
 }
 
 function mergeAggregate(obj1, obj2) {
-  Object.keys(obj2).forEach(key => {
-    if (key === 'ad_name') return;
-    const v2 = obj2[key], v1 = obj1[key];
-    if (Array.isArray(v2)) {
-      if (v1 === undefined) obj1[key] = v2;
-    } else if (v2 && typeof v2 === 'object') {
-      if (v1 === undefined) obj1[key] = JSON.parse(JSON.stringify(v2));
-      else obj1[key] = mergeAggregate(v1, v2);
-    } else if (typeof v2 === 'number') {
-      const skip = /^(?:cost_per_|cpm$|cpc$|cpp$|ctr$|.*_ctr$)/.test(key);
-      if (!skip) obj1[key] = (typeof v1 === 'number' ? v1 : 0) + v2;
-      else if (v1 === undefined) obj1[key] = v2;
-    } else if (typeof v2 === 'string') {
-      if (v1 === undefined) obj1[key] = v2;
-    }
-  });
-  return obj1;
+    Object.keys(obj2).forEach(key => {
+        if (key === 'ad_name') return;
+        const v2 = obj2[key], v1 = obj1[key];
+        if (Array.isArray(v2)) {
+            if (v1 === undefined) obj1[key] = v2;
+        } else if (v2 && typeof v2 === 'object') {
+            if (v1 === undefined) obj1[key] = JSON.parse(JSON.stringify(v2));
+            else obj1[key] = mergeAggregate(v1, v2);
+        } else if (typeof v2 === 'number') {
+            const skip = /^(?:cost_per_|cpm$|cpc$|cpp$|ctr$|.*_ctr$)/.test(key);
+            if (!skip) obj1[key] = (typeof v1 === 'number' ? v1 : 0) + v2;
+            else if (v1 === undefined) obj1[key] = v2;
+        } else if (typeof v2 === 'string') {
+            if (v1 === undefined) obj1[key] = v2;
+        }
+    });
+    return obj1;
 }
 
 
@@ -2362,14 +2108,271 @@ async function mainTask(params) {
     clientId = new ObjectId(clientId);
     userId = new ObjectId(userId);
     let defined_schema = await findOneDocument("defined_schemas", {
-        client_id: clientId, "schema": {"$exists":true, "$ne": []},
+        client_id: clientId, "schema": {"$exists": true, "$ne": []},
     })
     let schema = []
     if (defined_schema) {
         schema = defined_schema.schema;
-    }else{
-        schema = default_schema;
-
+    } else {
+        if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
+            schema = defined_schema.concat([{
+                "key": "cpgya",
+                "is_default": true,
+                "title": "CPGYA",
+                "description": "Cost per GYA",
+                "required": false,
+                "type": "float",
+                "similar_dictionary": [
+                    "Cost per Gya"
+                ],
+                "order_preference": "acs",
+                "format": "currency",
+                "formula": "spend / (green_appts + yellow_appts)"
+            },
+                {
+                    "key": "l2a",
+                    "is_default": true,
+                    "title": "L2A",
+                    "description": "Lead to Appointment",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Lead to Appt",
+                        "L2A"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "appts / lead"
+                },
+                {
+                    "key": "l2s",
+                    "is_default": true,
+                    "title": "L2S",
+                    "description": "Lead to Sale",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Lead to Sale",
+                        "L2S"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "sold / lead"
+                },
+                {
+                    "key": "l2c",
+                    "is_default": true,
+                    "title": "L2C",
+                    "description": "Lead to Conversion",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Lead to Conversion"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "show / lead"
+                },
+                {
+                    "key": "s2s",
+                    "is_default": true,
+                    "title": "S2S",
+                    "description": "Stage 2 to Sale conversion",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "S2S Conversion"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "sold / show"
+                },
+                {
+                    "key": "s2a",
+                    "is_default": true,
+                    "title": "S2A",
+                    "description": "Stage 2 to Appointment conversion",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "S2A Conversion"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "show / appts"
+                },
+                {
+                    "key": "gya",
+                    "is_default": true,
+                    "title": "GYA",
+                    "description": "GYA metric",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "GYA"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "(green_appts + yellow_appts) / appts"
+                },
+                {
+                    "key": "gyv",
+                    "is_default": true,
+                    "title": "GYV",
+                    "description": "GYV metric",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "GYV"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "green_appts + yellow_appts"
+                },
+                {
+                    "key": "cpsold",
+                    "is_default": true,
+                    "title": "CPSOLD",
+                    "description": "Cost per sold",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Cost per Sold"
+                    ],
+                    "order_preference": "acs",
+                    "format": "currency",
+                    "formula": "spend / sold"
+                },
+                {
+                    "key": "cpshow",
+                    "is_default": true,
+                    "title": "CPSHOW",
+                    "description": "Cost per show",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Cost per Show"
+                    ],
+                    "order_preference": "acs",
+                    "format": "currency",
+                    "formula": "spend / show"
+                },
+                {
+                    "key": "cpappts",
+                    "is_default": true,
+                    "title": "CPAPPTS",
+                    "description": "Cost per appointment",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Cost per Appointment"
+                    ],
+                    "order_preference": "acs",
+                    "format": "currency",
+                    "formula": "spend / appts"
+                },
+                {
+                    "key": "lead_cvr",
+                    "is_default": true,
+                    "title": "Lead CVR",
+                    "description": "Lead conversion rate",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Lead Conversion Rate"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "lead / link_clicks"
+                },
+                {
+                    "key": "sold",
+                    "is_default": true,
+                    "title": "SOLD",
+                    "description": "Number of final sales",
+                    "required": false,
+                    "type": "integer",
+                    "similar_dictionary": [
+                        "Sales",
+                        "Sold"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "show",
+                    "is_default": true,
+                    "title": "SHOW",
+                    "description": "Customers showing up at the doctor's office",
+                    "required": false,
+                    "type": "integer",
+                    "similar_dictionary": [
+                        "Show"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "appts",
+                    "is_default": true,
+                    "title": "APPTS",
+                    "description": "Appointments",
+                    "required": false,
+                    "type": "integer",
+                    "similar_dictionary": [
+                        "Appointments"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "green_appts",
+                    "is_default": true,
+                    "title": "Green Appointments",
+                    "description": "Green Appointments",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Green Appointments"
+                    ],
+                    "order_preference": "decs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "yellow_appts",
+                    "is_default": true,
+                    "title": "Yellow Appointments",
+                    "description": "Yellow Appointments",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Yellow Appointments"
+                    ],
+                    "order_preference": "decs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "red_appts",
+                    "is_default": true,
+                    "title": "Red Appointments",
+                    "description": "Red Appointments",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Red Appointments"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "N/A"
+                }])
+        } else {
+            schema = default_schema;
+        }
     }
     try {
         console.log("start ....", params)
@@ -2455,7 +2458,7 @@ async function mainTask(params) {
             ...item,
             uuid
         })))
-        if (["act_70970029","act_1474898293329309"].includes(FBadAccountId)) {
+        if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
             results = aggregateByCode(results);
             const athena_result = await runAthenaQuery(start_date, end_date);
             await insertMany("athena_result", athena_result.map(item => ({
