@@ -11,8 +11,8 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-athena": "^3.797.0",
     "@sentry/node": "^9.5.0",
-    "aws-sdk": "^2.1692.0",
     "axios": "^1.7.9",
     "body-parser": "^1.20.3",
     "dotenv": "^16.4.7",
