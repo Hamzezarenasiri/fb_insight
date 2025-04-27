@@ -3,7 +3,12 @@ import dotenv from 'dotenv';
 import express from 'express';
 import axios from 'axios';
 import {MongoClient, ObjectId} from 'mongodb';
-import AWS from 'aws-sdk';
+import {
+    AthenaClient,
+    StartQueryExecutionCommand,
+    GetQueryExecutionCommand,
+    GetQueryResultsCommand
+} from "@aws-sdk/client-athena";
 
 Sentry.init({
     dsn: "https://a51aca261c977758f4342257034a5d59@o1178736.ingest.us.sentry.io/4508958246043648",
@@ -567,12 +572,13 @@ let default_schema = [
         "formula": "result / link_clicks"
     }
 ]
-AWS.config.update({
-    region: process.env.AWS_REGION || 'us-east-1',
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-});
-const athena = new AWS.Athena();
+const athena = new AthenaClient({
+    region: process.env.AWS_REGION || "us-east-1",
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+})
 const app = express();
 app.use(express.json());
 // Static authentication token
@@ -647,15 +653,21 @@ const runAthenaQuery = async (start_date, end_date) => {
     };
     try {
         // Start the query execution
-        const {QueryExecutionId} = await athena.startQueryExecution(params).promise();
+        const startCmd = new StartQueryExecutionCommand(params);
+        const { QueryExecutionId } = await athena.send(startCmd);
+        // const {QueryExecutionId} = await athena.startQueryExecution(params).promise();
         console.log(`Query submitted successfully. Execution ID: ${QueryExecutionId}`);
 
         // Poll for query status until it is no longer RUNNING or QUEUED
         let status = 'RUNNING';
         while (status === 'RUNNING' || status === 'QUEUED') {
+            const execCmd = new GetQueryExecutionCommand({ QueryExecutionId });
             const {
-                QueryExecution: {Status}
-            } = await athena.getQueryExecution({QueryExecutionId}).promise();
+                QueryExecution: { Status }
+            } = await athena.send(execCmd);
+            // const {
+            //     QueryExecution: {Status}
+            // } = await athena.getQueryExecution({QueryExecutionId}).promise();
             status = Status.State;
             console.log(`Current query status: ${status}`);
             if (status === 'RUNNING' || status === 'QUEUED') {
@@ -665,7 +677,9 @@ const runAthenaQuery = async (start_date, end_date) => {
 
         // Check query status and process results if the query succeeded
         if (status === 'SUCCEEDED') {
-            let results = await athena.getQueryResults({QueryExecutionId}).promise();
+            const resultsCmd = new GetQueryResultsCommand({ QueryExecutionId });
+            let results = await athena.send(resultsCmd);
+            // let results = await athena.getQueryResults({QueryExecutionId}).promise();
             results = transformAthenaResult(results);
             return results;
         } else {
