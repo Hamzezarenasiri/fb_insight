@@ -1222,7 +1222,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             post_url,
             ad_id,
             format,
-            thumbnail_url: item.creative?.thumbnail_url,
+            conversion_rate_ranking,
+            engagement_rate_ranking,
             ...extraFieldsValues,
             other_fields: {
                 ...restOfItem,
@@ -1453,7 +1454,6 @@ function processData(Data, mappedColumns, metrics, agencyId, clientId, userId, i
         newRow.ad_id = row.ad_id;
         newRow.post_url = row.post_url;
         newRow.format = capitalizeFirstChar(row.format).replace("Photo", "Image").replace("Share", "Image");
-        newRow.thumbnail_url = row.thumbnail_url;
         newRow.other_fields = row.other_fields;
         return newRow;
     });
@@ -2490,7 +2490,7 @@ async function mainTask(params) {
         }
         const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts",])
         const exist_fields = findNonEmptyKeys(ads)
-        const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id", "thumbnail_url",].includes(item));
+        const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id",].includes(item));
         const tableColumns = transformObjects(schema);
         const result = Headers.map(item => {
             const {key, similarity} = findMostSimilarKey(item, tableColumns);
@@ -2599,7 +2599,6 @@ async function mainTask(params) {
                     adname: entry.Ad_Name,
                     post_url: entry.post_url,
                     format: entry.format,
-                    thumbnail_url: entry.thumbnail_url,
                     "meta_data.fb_data.creative": creative,
                 };
                 if (message) {
@@ -2632,7 +2631,6 @@ async function mainTask(params) {
                         adname: entry.Ad_Name,
                         post_url: entry.post_url,
                         format: entry.format,
-                        thumbnail_url: entry.thumbnail_url,
                         meta_data: entry
                     });
                     entry.asset_id = new_asset.insertedId
