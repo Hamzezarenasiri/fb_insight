@@ -1162,6 +1162,25 @@ const getAdsInsights = async (accountId, fbAccessToken, start_date, end_date, uu
     return insights;
 };
 
+const getAdsLibrary = async (accountId, fbAccessToken, start_date, end_date, uuid,search_page_ids="['98269389167']", max_count = 50) => {
+    const adsUrl = `${BASE_URL}/ads_archive?access_token=${fbAccessToken}&ad_type=ALL&ad_reached_countries=['US']&search_page_ids=${search_page_ids}&ad_delivery_date_min=${start_date}&ad_delivery_date_max=${end_date}&ad_active_status=ALL&fields=id,page_name,ad_snapshot_url,ad_delivery_start_time,ad_delivery_stop_time`;
+    let ads = [];
+    let nextPage = adsUrl;
+
+    while (nextPage && ads.length < max_count) {
+        const adsResponse = await fetchAds(nextPage, fbAccessToken);
+        if (!adsResponse) break;
+        const adData = adsResponse?.data || [];
+        ads.push(...adData);
+        nextPage = adsResponse.paging?.next;
+        await saveFacebookImportStatus(uuid, {
+            ads_count: ads.length
+        })
+    }
+    return ads;
+};
+
+
 function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFields = []) {
     const expr = ad_objective_field_expr.split(".");
 
@@ -2737,6 +2756,72 @@ app.post('/run-task', authenticate, (req, res) => {
     runInBackground(mainTask, params);
 });
 
+
+async function adLibraryTask(params) {
+    let {
+        start_date,
+        end_date,
+        agencyId,
+        clientId,
+        userId,
+        fbAccessToken,
+        FBadAccountId,
+        importListName,
+        uuid,
+        search_page_ids,
+        max_count,
+    } = params;
+    agencyId = new ObjectId(agencyId);
+    clientId = new ObjectId(clientId);
+    userId = new ObjectId(userId);
+    let schema = []
+    try {
+        console.log("start adLibrary....", params)
+        await saveFacebookImportStatus(uuid, {
+            start_date,
+            end_date,
+            agency_id: agencyId,
+            client_id: clientId,
+            user_id: userId,
+            fb_ad_account_id: FBadAccountId,
+            import_list_name: importListName,
+            status: "Importing from Facebook",
+            percentage: -1,
+            createdAt: new Date()
+        })
+        console.log("Getting ads ... ")
+        let results = await getAdsLibrary(FBadAccountId, fbAccessToken, start_date, end_date, uuid, search_page_ids, max_count)
+        return await insertMany("fb_ad_libraries", results.map(item => ({
+            ...item,
+            uuid
+        })))
+    } catch (error) {
+        console.error("An error occurred:", error);
+        await saveFacebookImportStatus(uuid, {
+            status: "failed",
+            error: JSON.stringify(error)
+        })
+        // Re-throw the error to propagate it further
+        throw error;
+    }
+}
+
+// Endpoint to trigger the task
+app.post('/run-ad-library', authenticate, (req, res) => {
+    const params = req.body;
+
+    // Validate incoming parameters
+    if (!params.start_date || !params.end_date || !params.fbAccessToken || !params.FBadAccountId) {
+        return res.status(400).send({success: false, message: 'Missing required parameters'});
+    }
+
+    // Acknowledge request
+    res.status(200).send({success: true, message: 'Task has been queued for processing'});
+
+    // Run the task in the background
+    runInBackground(adLibraryTask, params);
+});
+
 Sentry.setupExpressErrorHandler(app);
 
 // Optional fallthrough error handler
@@ -2768,4 +2853,20 @@ app.listen(PORT, () => {
 //         ai: "gemini"
 //     }
 // ))
+console.log(await adLibraryTask(
+    {
+        fbAccessToken: "EAAYXHibjFxoBO554Fwz1WOkGN0LTPIQEy6nCsjBEE9iWe3AEgnuH6EFUT17zxm0rLIvcxhk3BKhrJ6cinxMfsSYf7VkUXL0nL1p9ZCS1idEqHPbeJWCZABtYu5mVBRGQGJI4GiTQWBFLsuG8mYtimGQVlMh1gvU6OzlecOjZBZAxTjsxIPBIwdVoZB5z8B6ohZCmRePIyuJ4YmPdIfDmaI9H4ocO8WWZBi894gJ5ZA0TszKTQfgd8aqo5kYF8KFkB14pWVvjyPEpawZDZD",
+        FBadAccountId: "act_70970029",
+        start_date: "2024-05-07",
+        end_date: "2025-05-25",
+        agencyId: "6656208cdb5d669b53cc98c5",
+        clientId: "67d306be742ef319388d07d1",
+        userId: "66b03f924a9351d9433dca51",
+        importListName: "AdLibraryTest",
+        uuid: "111111111111111111111111",
+        search_page_ids:"['98269389167']",
+        max_count : 50
+    })
+)
+
 
