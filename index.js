@@ -1241,8 +1241,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             post_url,
             ad_id,
             format,
-            conversion_rate_ranking,
-            engagement_rate_ranking,
+            conversion_rate_ranking:item.conversion_rate_ranking,
+            engagement_rate_ranking:item.engagement_rate_ranking,
             ...extraFieldsValues,
             other_fields: {
                 ...restOfItem,
