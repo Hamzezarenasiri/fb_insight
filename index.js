@@ -573,6 +573,36 @@ let default_schema = [
         "order_preference": "decs",
         "format": "percent",
         "formula": "result / link_clicks"
+    },
+    {
+        "key": "Conversion Rate Ranking",
+        "title": "conversion_rate_ranking",
+        "type": "string",
+        "required": false,
+        "description": "Conversion Rate Ranking",
+        "is_default": true,
+        "similar_dictionary": [
+            "Conversion Rate Ranking",
+            "conversion_rate_ranking"
+        ],
+        "order_preference": "decs",
+        "format": "text",
+        "formula": "N/A"
+    },
+    {
+        "key": "Engagement Rate Ranking",
+        "title": "engagement_rate_ranking",
+        "type": "string",
+        "required": false,
+        "description": "Engagement Rate Ranking",
+        "is_default": true,
+        "similar_dictionary": [
+            "Engagement Rate Ranking",
+            "engagement_rate_ranking"
+        ],
+        "order_preference": "decs",
+        "format": "text",
+        "formula": "N/A"
     }
 ]
 const athena = new AthenaClient({
@@ -1197,6 +1227,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             post_url,
             ad_id,
             format,
+            conversion_rate_ranking,
+            engagement_rate_ranking,
             ...restOfItem
         } = item;
 
@@ -1241,8 +1273,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             post_url,
             ad_id,
             format,
-            conversion_rate_ranking:item.conversion_rate_ranking,
-            engagement_rate_ranking:item.engagement_rate_ranking,
+            conversion_rate_ranking,
+            engagement_rate_ranking,
             ...extraFieldsValues,
             other_fields: {
                 ...restOfItem,
