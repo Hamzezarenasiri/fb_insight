@@ -1253,6 +1253,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             format,
             conversion_rate_ranking,
             engagement_rate_ranking,
+            adset_name,
+            campaign_name,
             ...restOfItem
         } = item;
 
@@ -1299,6 +1301,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             format,
             conversion_rate_ranking,
             engagement_rate_ranking,
+            campaign_name,
+            adset_name,
             ...extraFieldsValues,
             other_fields: {
                 ...restOfItem,
