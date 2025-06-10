@@ -555,7 +555,8 @@ let default_schema = [
         "format": "currency",
         "formula": `spend / result`
         // "formula" : `(spend / ${ad_objective_id})`
-    }, {
+    },
+    {
         "key": "cvr",
         "title": "CVR",
         "type": "float",
@@ -2183,7 +2184,7 @@ async function mainTask(params) {
         schema = defined_schema.schema;
     } else {
         if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
-            schema = defined_schema.concat([{
+            schema = default_schema.concat([{
                 "key": "cpgya",
                 "is_default": true,
                 "title": "CPGYA",
