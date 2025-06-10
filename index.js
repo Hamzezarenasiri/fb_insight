@@ -151,6 +151,29 @@ let default_schema = [
         "formula": "N/A"
     },
     {
+        "key" : "adset_name",
+        "title" : "Adset Name",
+        "type" : "string",
+        "required" : true,
+        "description" : "Adset Name refers to the name or title of the adset",
+        "is_default" : true,
+        "similar_dictionary" : [ "adset", "Adset Name" ],
+        "order_preference" : "decs",
+        "format" : "text",
+        "formula" : "N/A"
+    },{
+        "key" : "campaign_name",
+        "title" : "Campaign Name",
+        "type" : "string",
+        "required" : true,
+        "description" : "Campaign Name refers to the name or title of the campain",
+        "is_default" : true,
+        "similar_dictionary" : [ "campaign", "Campaign Name" ],
+        "order_preference" : "decs",
+        "format" : "text",
+        "formula" : "N/A"
+    },
+    {
         "key": "spend",
         "title": "Spend",
         "type": "float",
