@@ -2567,7 +2567,7 @@ async function mainTask(params) {
                 uuid
             })))
         }
-        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts",])
+        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts","cpgya","s2a","gya","gyv","cpappts"])
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id",].includes(item));
         const tableColumns = transformObjects(schema);
@@ -2618,7 +2618,7 @@ async function mainTask(params) {
             import_list_id: import_list_inserted.insertedId,
         })
         let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted, schema);
-        // newDataArray = fillMissingFields(newDataArray, schema)
+        newDataArray = fillMissingFields(newDataArray, schema)
         const PercentkeysToCheck = getPercentFields(metrics);
         const keysToCheck = await findDocuments("import_schema", {type: {$in: ["float", "integer"]}}, {key: 1, _id: 0});
         let res = NormalizeNumberObjects(newDataArray, keysToCheck);
