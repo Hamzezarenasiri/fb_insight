@@ -2322,133 +2322,133 @@ async function mainTask(params) {
             //         "format": "number",
             //         "formula": "green_appts + yellow_appts"
             //     },
-            //     {
-            //         "key": "cpsold",
-            //         "is_default": true,
-            //         "title": "CPSOLD",
-            //         "description": "Cost per sold",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Cost per Sold"
-            //         ],
-            //         "order_preference": "acs",
-            //         "format": "currency",
-            //         "formula": "spend / sold"
-            //     },
-            //     {
-            //         "key": "cpshow",
-            //         "is_default": true,
-            //         "title": "CPSHOW",
-            //         "description": "Cost per show",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Cost per Show"
-            //         ],
-            //         "order_preference": "acs",
-            //         "format": "currency",
-            //         "formula": "spend / show"
-            //     },
-            //     {
-            //         "key": "cpappts",
-            //         "is_default": true,
-            //         "title": "CPAPPTS",
-            //         "description": "Cost per appointment",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Cost per Appointment"
-            //         ],
-            //         "order_preference": "acs",
-            //         "format": "currency",
-            //         "formula": "spend / appts"
-            //     },
-            //     {
-            //         "key": "lead_cvr",
-            //         "is_default": true,
-            //         "title": "Lead CVR",
-            //         "description": "Lead conversion rate",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Lead Conversion Rate"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "percent",
-            //         "formula": "lead / link_clicks"
-            //     },
-            //     {
-            //         "key": "sold",
-            //         "is_default": true,
-            //         "title": "SOLD",
-            //         "description": "Number of final sales",
-            //         "required": false,
-            //         "type": "integer",
-            //         "similar_dictionary": [
-            //             "Sales",
-            //             "Sold"
-            //         ],
-            //         "order_preference": "acs",
-            //         "format": "number",
-            //         "formula": "N/A"
-            //     },
-            //     {
-            //         "key": "show",
-            //         "is_default": true,
-            //         "title": "SHOW",
-            //         "description": "Customers showing up at the doctor's office",
-            //         "required": false,
-            //         "type": "integer",
-            //         "similar_dictionary": [
-            //             "Show"
-            //         ],
-            //         "order_preference": "acs",
-            //         "format": "number",
-            //         "formula": "N/A"
-            //     },
-            //     {
-            //         "key": "appts",
-            //         "is_default": true,
-            //         "title": "APPTS",
-            //         "description": "Appointments",
-            //         "required": false,
-            //         "type": "integer",
-            //         "similar_dictionary": [
-            //             "Appointments"
-            //         ],
-            //         "order_preference": "acs",
-            //         "format": "number",
-            //         "formula": "N/A"
-            //     },
-            //     {
-            //         "key": "green_appts",
-            //         "is_default": true,
-            //         "title": "Green Appointments",
-            //         "description": "Green Appointments",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Green Appointments"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "number",
-            //         "formula": "N/A"
-            //     },
-            //     {
-            //         "key": "yellow_appts",
-            //         "is_default": true,
-            //         "title": "Yellow Appointments",
-            //         "description": "Yellow Appointments",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Yellow Appointments"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "number",
-            //         "formula": "N/A"
-            //     },
+                {
+                    "key": "cpsold",
+                    "is_default": true,
+                    "title": "CPSOLD",
+                    "description": "Cost per sold",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Cost per Sold"
+                    ],
+                    "order_preference": "acs",
+                    "format": "currency",
+                    "formula": "spend / sold"
+                },
+                {
+                    "key": "cpshow",
+                    "is_default": true,
+                    "title": "CPSHOW",
+                    "description": "Cost per show",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Cost per Show"
+                    ],
+                    "order_preference": "acs",
+                    "format": "currency",
+                    "formula": "spend / show"
+                },
+                {
+                    "key": "cpappts",
+                    "is_default": true,
+                    "title": "CPAPPTS",
+                    "description": "Cost per appointment",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Cost per Appointment"
+                    ],
+                    "order_preference": "acs",
+                    "format": "currency",
+                    "formula": "spend / appts"
+                },
+                {
+                    "key": "lead_cvr",
+                    "is_default": true,
+                    "title": "Lead CVR",
+                    "description": "Lead conversion rate",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Lead Conversion Rate"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "lead / link_clicks"
+                },
+                {
+                    "key": "sold",
+                    "is_default": true,
+                    "title": "SOLD",
+                    "description": "Number of final sales",
+                    "required": false,
+                    "type": "integer",
+                    "similar_dictionary": [
+                        "Sales",
+                        "Sold"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "show",
+                    "is_default": true,
+                    "title": "SHOW",
+                    "description": "Customers showing up at the doctor's office",
+                    "required": false,
+                    "type": "integer",
+                    "similar_dictionary": [
+                        "Show"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "appts",
+                    "is_default": true,
+                    "title": "APPTS",
+                    "description": "Appointments",
+                    "required": false,
+                    "type": "integer",
+                    "similar_dictionary": [
+                        "Appointments"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "green_appts",
+                    "is_default": true,
+                    "title": "Green Appointments",
+                    "description": "Green Appointments",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Green Appointments"
+                    ],
+                    "order_preference": "decs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
+                {
+                    "key": "yellow_appts",
+                    "is_default": true,
+                    "title": "Yellow Appointments",
+                    "description": "Yellow Appointments",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Yellow Appointments"
+                    ],
+                    "order_preference": "decs",
+                    "format": "number",
+                    "formula": "N/A"
+                },
                 {
                     "key": "red_appts",
                     "is_default": true,
