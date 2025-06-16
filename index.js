@@ -2208,120 +2208,120 @@ async function mainTask(params) {
     } else {
         if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
             schema = default_schema.concat([
-            //     {
-            //     "key": "cpgya",
-            //     "is_default": true,
-            //     "title": "CPGYA",
-            //     "description": "Cost per GYA",
-            //     "required": false,
-            //     "type": "float",
-            //     "similar_dictionary": [
-            //         "Cost per Gya"
-            //     ],
-            //     "order_preference": "acs",
-            //     "format": "currency",
-            //     "formula": "spend / (green_appts + yellow_appts)"
-            // },
-            //     {
-            //         "key": "l2a",
-            //         "is_default": true,
-            //         "title": "L2A",
-            //         "description": "Lead to Appointment",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Lead to Appt",
-            //             "L2A"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "percent",
-            //         "formula": "appts / lead"
-            //     },
-            //     {
-            //         "key": "l2s",
-            //         "is_default": true,
-            //         "title": "L2S",
-            //         "description": "Lead to Sale",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Lead to Sale",
-            //             "L2S"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "percent",
-            //         "formula": "sold / lead"
-            //     },
-            //     {
-            //         "key": "l2c",
-            //         "is_default": true,
-            //         "title": "L2C",
-            //         "description": "Lead to Conversion",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "Lead to Conversion"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "percent",
-            //         "formula": "show / lead"
-            //     },
-            //     {
-            //         "key": "s2s",
-            //         "is_default": true,
-            //         "title": "S2S",
-            //         "description": "Stage 2 to Sale conversion",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "S2S Conversion"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "percent",
-            //         "formula": "sold / show"
-            //     },
-            //     {
-            //         "key": "s2a",
-            //         "is_default": true,
-            //         "title": "S2A",
-            //         "description": "Stage 2 to Appointment conversion",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "S2A Conversion"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "percent",
-            //         "formula": "show / appts"
-            //     },
-            //     {
-            //         "key": "gya",
-            //         "is_default": true,
-            //         "title": "GYA",
-            //         "description": "GYA metric",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "GYA"
-            //         ],
-            //         "order_preference": "decs",
-            //         "format": "percent",
-            //         "formula": "(green_appts + yellow_appts) / appts"
-            //     },
-            //     {
-            //         "key": "gyv",
-            //         "is_default": true,
-            //         "title": "GYV",
-            //         "description": "GYV metric",
-            //         "required": false,
-            //         "type": "float",
-            //         "similar_dictionary": [
-            //             "GYV"
-            //         ],
-            //         "order_preference": "acs",
-            //         "format": "number",
-            //         "formula": "green_appts + yellow_appts"
-            //     },
+                {
+                "key": "cpgya",
+                "is_default": true,
+                "title": "CPGYA",
+                "description": "Cost per GYA",
+                "required": false,
+                "type": "float",
+                "similar_dictionary": [
+                    "Cost per Gya"
+                ],
+                "order_preference": "acs",
+                "format": "currency",
+                "formula": "spend / (green_appts + yellow_appts)"
+            },
+                {
+                    "key": "l2a",
+                    "is_default": true,
+                    "title": "L2A",
+                    "description": "Lead to Appointment",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Lead to Appt",
+                        "L2A"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "appts / lead"
+                },
+                {
+                    "key": "l2s",
+                    "is_default": true,
+                    "title": "L2S",
+                    "description": "Lead to Sale",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Lead to Sale",
+                        "L2S"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "sold / lead"
+                },
+                {
+                    "key": "l2c",
+                    "is_default": true,
+                    "title": "L2C",
+                    "description": "Lead to Conversion",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "Lead to Conversion"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "show / lead"
+                },
+                {
+                    "key": "s2s",
+                    "is_default": true,
+                    "title": "S2S",
+                    "description": "Stage 2 to Sale conversion",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "S2S Conversion"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "sold / show"
+                },
+                {
+                    "key": "s2a",
+                    "is_default": true,
+                    "title": "S2A",
+                    "description": "Stage 2 to Appointment conversion",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "S2A Conversion"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "show / appts"
+                },
+                {
+                    "key": "gya",
+                    "is_default": true,
+                    "title": "GYA",
+                    "description": "GYA metric",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "GYA"
+                    ],
+                    "order_preference": "decs",
+                    "format": "percent",
+                    "formula": "(green_appts + yellow_appts) / appts"
+                },
+                {
+                    "key": "gyv",
+                    "is_default": true,
+                    "title": "GYV",
+                    "description": "GYV metric",
+                    "required": false,
+                    "type": "float",
+                    "similar_dictionary": [
+                        "GYV"
+                    ],
+                    "order_preference": "acs",
+                    "format": "number",
+                    "formula": "green_appts + yellow_appts"
+                },
                 {
                     "key": "cpsold",
                     "is_default": true,
