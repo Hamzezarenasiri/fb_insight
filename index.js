@@ -1241,11 +1241,11 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
     return data.map((item) => {
         const {
             ad_name,
+            spend,
             impressions,
             reach,
             ctr,
             frequency,
-            spend,
             cpp,
             cpm,
             post_url,
@@ -2618,7 +2618,7 @@ async function mainTask(params) {
             import_list_id: import_list_inserted.insertedId,
         })
         let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted, schema);
-        newDataArray = fillMissingFields(newDataArray, schema)
+        // newDataArray = fillMissingFields(newDataArray, schema)
         const PercentkeysToCheck = getPercentFields(metrics);
         const keysToCheck = await findDocuments("import_schema", {type: {$in: ["float", "integer"]}}, {key: 1, _id: 0});
         let res = NormalizeNumberObjects(newDataArray, keysToCheck);
