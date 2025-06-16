@@ -1253,6 +1253,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             format,
             conversion_rate_ranking,
             engagement_rate_ranking,
+            adset_name,
+            campaign_name,
             ...restOfItem
         } = item;
 
@@ -1299,6 +1301,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             format,
             conversion_rate_ranking,
             engagement_rate_ranking,
+            campaign_name,
+            adset_name,
             ...extraFieldsValues,
             other_fields: {
                 ...restOfItem,
@@ -2207,8 +2211,7 @@ async function mainTask(params) {
         schema = defined_schema.schema;
     } else {
         if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
-            schema = default_schema.concat([
-                {
+            schema = default_schema.concat([{
                 "key": "cpgya",
                 "is_default": true,
                 "title": "CPGYA",
@@ -2564,7 +2567,7 @@ async function mainTask(params) {
                 uuid
             })))
         }
-        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts",])
+        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts","cpgya","s2a","gya","gyv","cpappts"])
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id",].includes(item));
         const tableColumns = transformObjects(schema);
