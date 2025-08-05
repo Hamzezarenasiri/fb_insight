@@ -2546,6 +2546,7 @@ async function mainTask(params) {
             })))
         }
         const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts","cpgya","s2a","gya","gyv","cpappts"])
+        console.log('SAMPLE', ads[0].Ad_Name, ads[0].video_views_15s, ads[0].impressions, ads[0].hold);
         const exist_fields = findNonEmptyKeys(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id",].includes(item));
         const tableColumns = transformObjects(schema);
