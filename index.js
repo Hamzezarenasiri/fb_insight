@@ -2597,6 +2597,10 @@ async function mainTask(params) {
             import_list_id: import_list_inserted.insertedId,
         })
         let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted, schema);
+        // ★ restore the correct `hold` that processData zeroed out ★
+newDataArray.forEach((row, idx) => {
+  row.hold = ads[idx].hold;
+});
     console.log("🐛 after processData, hold =", newDataArray[0].hold);
 
         
