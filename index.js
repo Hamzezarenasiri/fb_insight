@@ -1275,7 +1275,7 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             link_click: item.actions?.link_click || null,
             purchase: item.actions?.purchase || null,
             vvr:  impressions ? item.actions?.video_view / impressions : null,
-            hold:  impressions ? item.actions.video_thruplay_watched_actions?.video_view / impressions : null,
+            hold:  impressions ? item.video_thruplay_watched_actions?.video_view / impressions : null,
             cpa: item.cost_per_action_type?.purchase || null,
             cvr: item.actions?.link_click
                 ? (item?.[expr[0]]?.[expr[1]] ? item[expr[0]][expr[1]] / item.actions?.link_click : 0)
