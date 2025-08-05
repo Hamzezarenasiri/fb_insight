@@ -1274,8 +1274,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             cpm: cpm || null,
             link_click: item.actions?.link_click || null,
             purchase: item.actions?.purchase || null,
-            vvr: impressions ? item.actions?.video_view / impressions : null,
-            hold: impressions ? item.video_thruplay_watched_actions?.video_view / impressions : null,
+            vvr:  impressions ? item.actions?.video_view / impressions : null,
+            hold: impressions ? (item.actions?.video_thruplay_watched_actions ?? 0) / impressions : null,
             cpa: item.cost_per_action_type?.purchase || null,
             cvr: item.actions?.link_click
                 ? (item?.[expr[0]]?.[expr[1]] ? item[expr[0]][expr[1]] / item.actions?.link_click : 0)
@@ -1285,7 +1285,7 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             cpl: item.cost_per_action?.lead || null,
             revenue: item.action_values?.purchase || null,
             video_view_3s: item.actions?.video_view || null,
-            video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
+            video_views_15s: item.actions?.video_thruplay_watched_actions ?? null,
             video_avg_time_watched: item.video_avg_time_watched_actions?.video_view || null,
             video_p25_watched: item.video_p25_watched_actions?.video_view || null,
             video_p50_watched: item.video_p50_watched_actions?.video_view || null,
