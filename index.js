@@ -2603,6 +2603,16 @@ async function mainTask(params) {
         let res = NormalizeNumberObjects(newDataArray, keysToCheck);
         console.log("Validating Records ... ")
         let validatedRecords = detectAndNormalizePercentageInObjects(res, PercentkeysToCheck)
+        console.log(
+          "⏺️ INSERT SAMPLE:",
+          validatedRecords[0].Ad_Name,
+          "hold=",
+          validatedRecords[0].hold,
+          "type:",
+          typeof validatedRecords[0].hold
+        );
+
+        
         const AssetsIds = await aggregateDocuments("assets", [
             {
                 $match: {
