@@ -1284,8 +1284,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             cpc: item.cost_per_action?.link_click || (item.actions?.link_click ? spend / item.actions?.link_click : null),
             cpl: item.cost_per_action?.lead || null,
             revenue: item.action_values?.purchase || null,
-            video_view_3s: item.actions?.video_view || null,
-            video_view_15s: item.video_thruplay_watched_actions?.video_view || null,
+            video_views_3s: item.actions?.video_view || null,
+            video_views_15s: item.video_thruplay_watched_actions?.video_view || null,
             video_avg_time_watched: item.video_avg_time_watched_actions?.video_view || null,
             video_p25_watched: item.video_p25_watched_actions?.video_view || null,
             video_p50_watched: item.video_p50_watched_actions?.video_view || null,
@@ -1482,7 +1482,7 @@ function calculateMetrics(inputValues, metrics) {
 }
 
 function cleanData(value, defaultValue = null) {
-    if (!value || value === "") return defaultValue;
+    if (value === undefined || value === null || value === "") return defaultValue;
     return value.toString().replace(/[\$,%]/g, '');
 }
 
@@ -1556,44 +1556,22 @@ function NormalizeNumberObjects(dataArray, keysToCheck) {
 }
 
 function detectAndNormalizePercentageInObjects(dataArray, keysToCheck) {
-    // Determine if each key requires normalization
-    const normalizationRequired = {};
-
+  // walk every row – decide per value, not per column
+  return dataArray.map(obj => {
     keysToCheck.forEach(key => {
-        normalizationRequired[key] = false;
-        for (const obj of dataArray) {
-            if (obj.hasOwnProperty(key)) {
-                let value = obj[key];
-                if (typeof value === 'string') {
-                    value = parseFloat(value);
-                }
-                if (typeof value === 'number' && !isNaN(value)) {
-                    if (value > 1) {
-                        normalizationRequired[key] = true;
-                        break;
-                    }
-                }
-            }
-        }
-    });
+      if (!obj.hasOwnProperty(key)) return;
 
-    // Normalize values if needed for each key
-    dataArray.forEach(obj => {
-        keysToCheck.forEach(key => {
-            if (normalizationRequired[key] && obj.hasOwnProperty(key)) {
-                let value = obj[key];
-                if (typeof value === 'string') {
-                    value = parseFloat(value);
-                }
-                if (typeof value === 'number' && !isNaN(value)) {
-                    obj[key] = value / 100;
-                }
-            }
-        });
-    });
+      let v = typeof obj[key] === 'string' ? parseFloat(obj[key]) : obj[key];
 
-    return dataArray;
+      // only divide when the number clearly looks like “30” (meaning 30 %)
+      if (typeof v === 'number' && !isNaN(v) && v > 1) {
+        obj[key] = v / 100;
+      }
+    });
+    return obj;
+  });
 }
+
 
 async function saveFacebookImportStatus(uuid, updateValues) {
     const collectionName = 'facebook_imports';
