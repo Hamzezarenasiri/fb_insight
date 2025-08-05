@@ -2597,12 +2597,22 @@ async function mainTask(params) {
             import_list_id: import_list_inserted.insertedId,
         })
         let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted, schema);
+    console.log("🐛 after processData, hold =", newDataArray[0].hold);
+
+        
         newDataArray = fillMissingFields(newDataArray, schema)
+
+            console.log("🐛 after fillMissingFields, hold =", newDataArray[0].hold);
+
         const PercentkeysToCheck = getPercentFields(metrics);
         const keysToCheck = await findDocuments("import_schema", {type: {$in: ["float", "integer"]}}, {key: 1, _id: 0});
         let res = NormalizeNumberObjects(newDataArray, keysToCheck);
+            console.log("🐛 after NormalizeNumberObjects, hold =", res[0].hold);
+
         console.log("Validating Records ... ")
         let validatedRecords = detectAndNormalizePercentageInObjects(res, PercentkeysToCheck)
+            console.log("🐛 after detectAndNormalize, hold =", validatedRecords[0].hold);
+
         console.log(
           "⏺️ INSERT SAMPLE:",
           validatedRecords[0].Ad_Name,
