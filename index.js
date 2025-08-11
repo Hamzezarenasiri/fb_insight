@@ -805,14 +805,17 @@ async function findOneDocument(collectionName, query, projection = {}, sort = {}
 }
 
 async function aggregateDocuments(collectionName, pipeline) {
-    try {
-        const collection = await connectToCollection(collectionName);
-        return await collection.aggregate(pipeline).toArray();
-    } catch (error) {
-        console.error("Error aggregating documents: ", error);
-        throw error;
-    }
+  try {
+    const collection = await connectToCollection(collectionName);
+    return await collection.aggregate(pipeline).toArray();
+  } catch (error) {
+-   console.error("Error aggregating documents: ", error);
++   console.error(`Error aggregating documents in "${collectionName}" with pipeline:`,
++     JSON.stringify(pipeline, null, 2), "\nError:", error);
+    throw error;
+  }
 }
+
 
 async function updateOneDocument(collectionName, filter, update, options = {upsert: true}) {
     try {
@@ -1274,8 +1277,8 @@ function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFi
             cpm: cpm || null,
             link_click: item.actions?.link_click || null,
             purchase: item.actions?.purchase || null,
-            vvr:  impressions ? item.actions?.video_view / impressions : null,
-            hold:  impressions ? item.video_thruplay_watched_actions?.video_view / impressions : null,
+            vvr:  impressions ? ((item.actions?.video_view ?? 0) / impressions) : 0,
+            hold: impressions ? ((item.video_thruplay_watched_actions?.video_view ?? 0) / impressions) : 0,
             cpa: item.cost_per_action_type?.purchase || null,
             cvr: item.actions?.link_click
                 ? (item?.[expr[0]]?.[expr[1]] ? item[expr[0]][expr[1]] / item.actions?.link_click : 0)
@@ -1817,47 +1820,123 @@ async function generateProduct(uuid, clientId, agencyId) {
     const prompt = prompt_setting.promptTemplate;
 
     const tags = await aggregateDocuments("tags", [
-        {"$match": {"client_id": clientId}},
-        {
-            "$group": {
-                "_id": {"category": "$category"},
-                "tags": {"$push": {"k": "$tag", "v": "$description"}},
-            }
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "category": "$_id.category",
-                "tags": {"$arrayToObject": "$tags"},
-            }
-        },
-        {
-            "$group": {
-                "_id": null,
-                "categories": {"$push": {"k": "$category", "v": "$tags"}},
-            }
-        },
-        {"$replaceRoot": {"newRoot": {"$arrayToObject": "$categories"}}},
-    ])
-    if (tags.length > 1) {
+  { $match: { client_id: clientId }},
+
+  // group all tag/desc by category
+  {
+    $group: {
+      _id: "$category",
+      pairs: {
+        $push: {
+          k: "$tag",
+          v: { $ifNull: ["$description", ""] }
+        }
+      }
+    }
+  },
+
+  // ensure both k and v exist and k is not null/empty
+  {
+    $project: {
+      _id: 0,
+      category: "$_id",
+      tags: {
+        $arrayToObject: {
+          $map: {
+            input: {
+              $filter: {
+                input: "$pairs",
+                as: "p",
+                cond: {
+                  $and: [
+                    { $ne: ["$$p.k", null] },
+                    { $ne: ["$$p.k", ""] }
+                  ]
+                }
+              }
+            },
+            as: "p",
+            in: { k: "$$p.k", v: "$$p.v" }
+          }
+        }
+      }
+    }
+  },
+
+  // now collapse into a single document { categoryName: {tag:desc,...}, ... }
+  {
+    $group: {
+      _id: null,
+      categories: {
+        $push: {
+          k: "$category",
+          v: "$tags"
+        }
+      }
+    }
+  },
+
+  // filter out empty/null category keys before arrayToObject
+  {
+    $project: {
+      _id: 0,
+      categories: {
+        $filter: {
+          input: "$categories",
+          as: "c",
+          cond: {
+            $and: [
+              { $ne: ["$$c.k", null] },
+              { $ne: ["$$c.k", ""] }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  { $replaceRoot: { newRoot: { $arrayToObject: "$categories" } } }
+])
+ if (tags.length > 1) {
         return
     }
-    const categories = await aggregateDocuments(
-        "tags_categories",
-        [
-            {"$match": {"client_id": clientId}},
-            {"$sort": {"_id": 1}},
-            {
-                "$group": {
-                    "_id": null,
-                    "categoryDescriptions": {
-                        "$push": {"k": "$category", "v": "$description"}
-                    },
-                }
-            },
-            {"$replaceRoot": {"newRoot": {"$arrayToObject": "$categoryDescriptions"}}},
-        ],
-    )
+    const categories = await aggregateDocuments("tags_categories", [
+  { $match: { client_id: clientId } },
+  { $sort: { _id: 1 } },
+
+  {
+    $group: {
+      _id: null,
+      categoryDescriptions: {
+        $push: {
+          k: "$category",
+          v: { $ifNull: ["$description", ""] }
+        }
+      }
+    }
+  },
+
+  // filter out items without valid k before arrayToObject
+  {
+    $project: {
+      _id: 0,
+      categoryDescriptions: {
+        $filter: {
+          input: "$categoryDescriptions",
+          as: "kv",
+          cond: {
+            $and: [
+              { $ne: ["$$kv.k", null] },
+              { $ne: ["$$kv.k", ""] }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  { $replaceRoot: { newRoot: { $arrayToObject: "$categoryDescriptions" } } }
+])
     const categories_val = categories[0];
     let tag_example = "{"
     Object.keys(categories_val).forEach((k) => {
@@ -2007,33 +2086,44 @@ Just return json and nothing else.
         // }
     }
     let jackpot = await aggregateDocuments("tags", [
-        {$match: {client_id: clientId}},
-        {
-            $group: {
-                _id: "$category",
-                ids: {$push: "$_id"}
-            }
-        },
-        // Convert each grouped document into a key/value pair.
-        {
-            $project: {
-                _id: 0,
-                k: "$_id",
-                v: "$ids"
-            }
-        },
-        // Merge all key/value pairs into a single document.
-        {
-            $group: {
-                _id: null,
-                categories: {$push: {k: "$k", v: "$v"}}
-            }
-        },
-        // Replace the root with the new document formed from the key/value pairs.
-        {
-            $replaceRoot: {newRoot: {$arrayToObject: "$categories"}}
-        },
-    ]);
+  { $match: { client_id: clientId, category: { $type: "string", $ne: "" } } },
+
+  {
+    $group: {
+      _id: "$category",
+      ids: { $push: "$_id" }
+    }
+  },
+
+  { $project: { _id: 0, k: "$_id", v: "$ids" } },
+
+  {
+    $group: {
+      _id: null,
+      categories: { $push: { k: "$k", v: "$v" } }
+    }
+  },
+
+  {
+    $project: {
+      _id: 0,
+      categories: {
+        $filter: {
+          input: "$categories",
+          as: "c",
+          cond: {
+            $and: [
+              { $ne: ["$$c.k", null] },
+              { $ne: ["$$c.k", ""] }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  { $replaceRoot: { newRoot: { $arrayToObject: "$categories" } } }
+]);
     let startProgress = 50;
     const endProgress = 60;
     const totalTasks = funnels.length;
