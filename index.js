@@ -637,7 +637,8 @@ const athena = new AthenaClient({
     }
 })
 const app = express();
-app.use(express.json());
+app.set('trust proxy', 1);
+app.use(express.json({ limit: '10mb' }));
 // Static authentication token
 const STATIC_TOKEN = 'KV5NfjBPaN9JDWqbDXrjQGoyeMtQWyfG16nTHmUPXFw='; // Replace with a secure, randomly generated token
 
@@ -2894,7 +2895,10 @@ newDataArray.forEach((row, idx) => {
 }
 
 // Endpoint to trigger the task
-app.post('/run-task', authenticate, (req, res) => {
+app.post('/run-task', async (req, res) => {
+    const auth = req.get('authorization') || '';
+    if (!auth) return res.status(401).json({ error: 'missing Authorization' });
+
     const params = req.body;
 
     // Validate incoming parameters
@@ -2987,7 +2991,7 @@ app.use(function onError(err, req, res, next) {
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`API listening on ${PORT}`);
 });
 
 // console.log(await mainTask(
