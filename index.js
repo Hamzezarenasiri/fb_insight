@@ -932,12 +932,18 @@ async function mainTask(params) {
         const included = result.filter(r => r.similar_obj !== "Exclude");
         const excluded = result.length - included.length;
         logProgress('mapping.match', { total: result.length, included: included.length, excluded }, ctx)
+        const includedKeys = included.map(r => r.similar_obj.key);
+        logProgress('mapping.included.keys', { keys: includedKeys }, ctx)
         const formData = {};
         result.forEach(mapping => {
             if (mapping.similar_obj !== "Exclude") {
                 formData[mapping.similar_obj.key] = mapping.head;
             }
         });
+        if (Headers.includes('spend') && !('spend' in formData)) {
+            formData['spend'] = 'spend';
+            logProgress('mapping.force.spend', {}, ctx)
+        }
         logProgress('mapping.formData', { keys: Object.keys(formData).length }, ctx)
         const last_imported_list = (await findDocumentsRepo("imported_lists", {
             client_id: clientId
@@ -1139,6 +1145,7 @@ newDataArray.forEach((row, idx) => {
         }
         console.log("Inserting Metrics ... ")
         const insertedItems = await insertManyRepo("metrics", validatedRecords)
+        logProgress('metrics.insert.result', { inserted: insertedItems?.insertedCount || validatedRecords.length }, ctx)
         console.log("Creating report ... ")
         const report_data = await insertOneDocumentRepo("reports_data", {
                 "import_list_id": import_list_inserted.insertedId,
