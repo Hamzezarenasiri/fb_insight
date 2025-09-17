@@ -127,7 +127,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY
     "website_ctr",
     "website_purchase_roas",
 ].join(","); */
-import { default_schema as DEFAULT_SCHEMA, buildClientSchema } from './src/services/reporting/schema.defaults.js'
+// duplicate import removed; using DEFAULT_SCHEMA import at top
 const default_schema = DEFAULT_SCHEMA; /* moved to schema.defaults.js */
 /*
     {
