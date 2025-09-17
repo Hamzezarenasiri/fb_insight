@@ -20,9 +20,9 @@ export async function generateProduct(uuid, clientId, agencyId) {
     { $sort: { _id: 1 } },
     { $project: { _id: 0, category: 1, tag: 1, description: 1 } },
     { $group: { _id: '$category', pairs: { $push: { k: '$tag', v: '$description' } } } },
-    { $project: { _id: 0, category: '$_id', tags: { $arrayToObject: { $map: { input: { $filter: { input: '$pairs', as: 'p', cond: { $and: [ { $ne: ['$$p.k', null] }, { $ne: ['$$p.k', ''] } ] } } }, as: 'p', in: { k: '$$p.k', v: '$$p.v' } } } } } },
+    { $project: { _id: 0, category: '$_id', tags: { $arrayToObject: { $map: { input: { $filter: { input: '$pairs', as: 'p', cond: { $and: [ { $ne: ['$$p.k', null] }, { $ne: ['$$p.k', ''] }, { $ne: ['$$p.v', null] } ] } } }, as: 'p', in: { k: '$$p.k', v: '$$p.v' } } } } } },
     { $group: { _id: null, categories: { $push: { k: '$category', v: '$tags' } } } },
-    { $project: { _id: 0, categories: { $filter: { input: '$categories', as: 'c', cond: { $and: [ { $ne: ['$$c.k', null] }, { $ne: ['$$c.k', ''] } ] } } } } },
+    { $project: { _id: 0, categories: { $map: { input: { $filter: { input: '$categories', as: 'c', cond: { $and: [ { $ne: ['$$c.k', null] }, { $ne: ['$$c.k', ''] }, { $ne: ['$$c.v', null] } ] } } }, as: 'c', in: { k: '$$c.k', v: '$$c.v' } } } } },
     { $replaceRoot: { newRoot: { $arrayToObject: '$categories' } } }
   ]);
   if (tags.length > 1) return;
@@ -30,7 +30,7 @@ export async function generateProduct(uuid, clientId, agencyId) {
     { $match: { client_id: clientId } },
     { $sort: { _id: 1 } },
     { $group: { _id: null, categoryDescriptions: { $push: { k: '$category', v: { $ifNull: ['$description', ''] } } } } },
-    { $project: { _id: 0, categoryDescriptions: { $filter: { input: '$categoryDescriptions', as: 'kv', cond: { $and: [ { $ne: ['$$kv.k', null] }, { $ne: ['$$kv.k', ''] } ] } } } } },
+    { $project: { _id: 0, categoryDescriptions: { $map: { input: { $filter: { input: '$categoryDescriptions', as: 'kv', cond: { $and: [ { $ne: ['$$kv.k', null] }, { $ne: ['$$kv.k', ''] }, { $ne: ['$$kv.v', null] } ] } } }, as: 'kv', in: { k: '$$kv.k', v: '$$kv.v' } } } } },
     { $replaceRoot: { newRoot: { $arrayToObject: '$categoryDescriptions' } } }
   ]);
   // This function previously orchestrated OpenAI extraction calls; leave implementation to enrichment.openai or calling code.

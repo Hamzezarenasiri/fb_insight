@@ -8,8 +8,7 @@ export async function runAdLibraryController(req, res) {
     jobId: params.uuid || `${Date.now()}-${Math.random()}`,
     removeOnComplete: true,
     removeOnFail: false,
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 2000 }
+    attempts: 1
   });
 }
 

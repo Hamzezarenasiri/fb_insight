@@ -11,8 +11,7 @@ export async function runTaskController(req, res) {
     jobId: params.uuid,
     removeOnComplete: true,
     removeOnFail: false,
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 2000 }
+    attempts: 1
   });
 }
 
