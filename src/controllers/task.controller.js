@@ -7,7 +7,13 @@ export async function runTaskController(req, res) {
   const params = req.validatedBody || req.body;
 
   res.status(200).send({success: true, message: 'Task has been queued for processing'});
-  await taskQueue.add('run-task', params, { removeOnComplete: true, removeOnFail: false, attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
+  await taskQueue.add('run-task', params, {
+    jobId: params.uuid,
+    removeOnComplete: true,
+    removeOnFail: false,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 }
+  });
 }
 
 
