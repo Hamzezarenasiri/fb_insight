@@ -1192,7 +1192,7 @@ newDataArray.forEach((row, idx) => {
             const response = await taggingSvc(import_list_inserted.insertedId, clientId, ai)
             logProgress('tagging.done', {}, ctx)
         } else {
-            await saveFacebookImportStatus(uuid, {
+            await saveFacebookImportStatusSvc(uuid, {
                 status: "success",
                 percentage: 100
             })
@@ -1200,7 +1200,7 @@ newDataArray.forEach((row, idx) => {
         }
     } catch (error) {
         console.error("An error occurred:", error);
-        await saveFacebookImportStatus(uuid, {
+        await saveFacebookImportStatusSvc(uuid, {
             status: "failed",
             error: JSON.stringify(error)
         })
@@ -1234,7 +1234,7 @@ async function adLibraryTask(params) {
         const t0 = startTimer();
         const ctx = { uuid, accountId: FBadAccountId, agencyId: String(agencyId), clientId: String(clientId) };
         logProgress('adlib.start', { start_date, end_date, importListName, max_count }, ctx)
-        await saveFacebookImportStatus(uuid, {
+        await saveFacebookImportStatusSvc(uuid, {
             start_date,
             end_date,
             agency_id: agencyId,
@@ -1258,7 +1258,7 @@ async function adLibraryTask(params) {
         return inserted
     } catch (error) {
         console.error("An error occurred:", error);
-        await saveFacebookImportStatus(uuid, {
+        await saveFacebookImportStatusSvc(uuid, {
             status: "failed",
             error: JSON.stringify(error)
         })
