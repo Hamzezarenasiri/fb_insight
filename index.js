@@ -921,6 +921,7 @@ async function mainTask(params) {
         const exist_fields = findNonEmptyKeysSvc(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id",].includes(item));
         const tableColumns = transformObjectsSvc(schema);
+        logProgress('mapping.headers', { headers_count: Headers.length }, ctx)
         const result = Headers.map(item => {
             const {key, similarity} = findMostSimilarKeySvc(item, tableColumns);
             return {
@@ -928,12 +929,16 @@ async function mainTask(params) {
                 similar_obj: similarity > 0.75 ? tableColumns.find(obj => Object.keys(obj)[0] === key)[key] : "Exclude"
             };
         });
+        const included = result.filter(r => r.similar_obj !== "Exclude");
+        const excluded = result.length - included.length;
+        logProgress('mapping.match', { total: result.length, included: included.length, excluded }, ctx)
         const formData = {};
         result.forEach(mapping => {
             if (mapping.similar_obj !== "Exclude") {
                 formData[mapping.similar_obj.key] = mapping.head;
             }
         });
+        logProgress('mapping.formData', { keys: Object.keys(formData).length }, ctx)
         const last_imported_list = (await findDocumentsRepo("imported_lists", {
             client_id: clientId
         }, {}, {"createdAt": -1}))?.[0]
@@ -1144,7 +1149,9 @@ newDataArray.forEach((row, idx) => {
                 "createdAt": new Date()
             }
         )
+        logProgress('report.create.done', { report_data_id: String(report_data?.insertedId) }, ctx)
         if (last_sub_reports && last_sub_reports.length > 0) {
+            let subCount = 0;
             for (const last_sub_report of last_sub_reports) {
                 await insertOneDocumentRepo("sub_reports", {
                         ...(({_id, ...rest}) => rest)(last_sub_report),
@@ -1155,7 +1162,9 @@ newDataArray.forEach((row, idx) => {
                         "createdAt": new Date()
                     }
                 );
+                subCount++;
             }
+            logProgress('sub_reports.cloned', { count: subCount }, ctx)
         } else {
             await insertOneDocumentRepo("sub_reports", {
                 import_list_id: import_list_inserted.insertedId,
@@ -1176,6 +1185,7 @@ newDataArray.forEach((row, idx) => {
                 updatedAt: new Date(),
                 createdAt: new Date()
             })
+            logProgress('sub_reports.created.default', { title: 'Source' }, ctx)
         }
         await saveFacebookImportStatusSvc(uuid, {
             status: "Analyzing imported data",
