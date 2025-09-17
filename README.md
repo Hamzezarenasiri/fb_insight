@@ -10,7 +10,7 @@ An Express.js API to import and process Facebook Ads data. It fetches ad-level i
 - **Enrichment**: Preview scraping, optional OpenAI, external tagging API
 - **Validation**: Zod request schemas per endpoint
 - **Jobs**: BullMQ queues + workers replacing `setTimeout`
-- **Observability**: Sentry-ready, structured logs recommended
+- **Observability**: Structured JSON logs for every stage (fetch, mapping, metrics, report, enrichment, tagging)
 
 ### Architecture
 - **Ingress**: Client → Nginx (TLS) → Express app
@@ -109,6 +109,7 @@ The server logs: `API listening on <PORT>`.
 
 - Visit `/docs` for Swagger UI (served from `src/docs/openapi.yaml`).
 - Update the YAML file to add/modify endpoints and schemas.
+- Request/response validation enforced via Zod schemas.
 
 ### Nginx (recommended)
 
@@ -138,7 +139,7 @@ Call via `https://example.com/run-task`.
 Triggers Facebook Ads insights import for the provided account and date range. Validated via Zod.
 
 - **Headers**
-  - `Authorization: Bearer <token>` (required; presence-checked by default)
+  - `Authorization: Bearer <token>` (required)
 
 - **Body (JSON)**
 ```json
@@ -154,7 +155,8 @@ Triggers Facebook Ads insights import for the provided account and date range. V
   "uuid": "<job-uuid>",
   "ad_objective_id": "leads_all",
   "ad_objective_field_expr": "actions.lead",
-  "ai": "gemini"
+  "ai": "gemini"  
+  // optional; may also be null
 }
 ```
 
@@ -171,7 +173,7 @@ Triggers Facebook Ads insights import for the provided account and date range. V
 Fetches Facebook Ad Library entries (optional endpoint).
 
 - **Headers**
-  - `Authorization: <STATIC_TOKEN>` (required if auth enabled)
+  - `Authorization: Bearer <STATIC_TOKEN>` (required if auth enabled)
 
 - **Body (JSON)**
 ```json
@@ -194,8 +196,8 @@ Fetches Facebook Ad Library entries (optional endpoint).
   - Enqueues a BullMQ job (`run-ad-library`) handled by `adLibrary.worker.js`
 
 ### Validation and OpenAPI
-- **Validation**: Implemented via Zod schemas under `src/schemas/` and applied by `validateBody` middleware.
-- **OpenAPI**: You can generate OpenAPI from Zod using tools like `zod-to-openapi`. Consider serving docs at `/docs` with `swagger-ui-express`.
+- **Validation**: Implemented via Zod schemas under `src/schemas/` and applied by `validate` middleware. Optional fields like `ai`, `ad_objective_id`, `ad_objective_field_expr` accept `null`.
+- **OpenAPI**: Served at `/docs` using `swagger-ui-express` with `src/docs/openapi.yaml`.
 
 ## Data model (MongoDB)
 - **fb_insights**: raw ad insights with creative, status, post_url
@@ -210,7 +212,21 @@ Fetches Facebook Ad Library entries (optional endpoint).
 - **Queues**: `run-task`, `run-ad-library` (`src/jobs/queues.js`)
 - **Workers**: `src/jobs/workers/*.worker.js`
 - **Config**: Redis via `REDIS_*` env vars
-- **Retries**: Controllers enqueue with exponential backoff and `attempts: 3`
+- **De-duplication**: Jobs are enqueued with `jobId = uuid` to prevent duplicates
+- **Retries**: Disabled (`attempts: 1`) so failed jobs do not auto re-run
+- **Concurrency**: Workers run with limited concurrency for stability
+
+### Observability (logs)
+- Logs are emitted as JSON for easier grep/parse. Common stages:
+  - `worker.task.start|done|error` (job lifecycle)
+  - `task.start`, `fetch.ads.start|done`, `fb_insights.inserted`
+  - `athena.start`, `athena.query.start|poll|done`, `merge.athena`
+  - `mapping.headers|match|included.keys|formData`
+  - `records.validate.start|done`, `metrics.spend.stats`
+  - `metrics.insert.result`, `report.create.done`, `sub_reports.cloned|created.default`
+  - `enrichment.messages_links.start|done`, `enrichment.products.start|done`
+  - `tagging.start|done|skipped`
+  - HTTP client: `http.success|retry|catch.retry|error|fail` (redacted URLs)
 
 ## Security
 - **Network**: Put behind Nginx with TLS
@@ -220,9 +236,28 @@ Fetches Facebook Ad Library entries (optional endpoint).
 
 ## Troubleshooting
 - **Mongo**: Verify `mongodb_uri` and network access
-- **Redis**: Ensure Redis is reachable by workers
+- **Redis**: Ensure Redis is reachable by workers (BullMQ recommends Redis >= 6.2; warnings are informational)
 - **Athena**: Check AWS creds, region, database, and S3 output location
-- **Facebook API**: Validate access token scopes and date ranges; handle 429 backoff
+- **Facebook API**: Validate access token scopes and date ranges; 429s will backoff and retry automatically
+- **Swagger not found**: Install `swagger-ui-express` and `yamljs`, then restart
+- **Port in use (EADDRINUSE)**: Stop old PM2 processes or change `PORT`
+- **npm ci lock mismatch**: Run `npm install` locally, commit `package-lock.json`, deploy
+- **$arrayToObject 40392**: Caused by malformed tag data. The enrichment step now filters invalid `{k,v}` pairs and falls back to JS-built objects, allowing the job to complete.
+
+## Production
+Use PM2 and Node 20+:
+```bash
+# install deps
+npm ci --omit=dev
+
+# start
+npx pm2 start src/server.js --name fb-api --time
+npx pm2 start src/jobs/workers/task.worker.js --name fb-task-worker --time
+npx pm2 start src/jobs/workers/adLibrary.worker.js --name fb-adlib-worker --time
+
+# logs
+npx pm2 logs fb-api fb-task-worker fb-adlib-worker --lines 200
+```
 
 ## Scripts
 - **Start API**: `npm start` (runs `node src/server.js`)
