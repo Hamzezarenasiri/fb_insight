@@ -10,9 +10,9 @@ export const runTaskSchema = z.object({
   userId: z.string().min(10),
   importListName: z.string().min(1),
   uuid: z.string().min(8),
-  ad_objective_id: z.string().optional(),
-  ad_objective_field_expr: z.string().optional(),
-  ai: z.string().optional(),
+  ad_objective_id: z.string().optional().nullable(),
+  ad_objective_field_expr: z.string().optional().nullable(),
+  ai: z.string().optional().nullable(),
 });
 
 
