@@ -1,5 +1,6 @@
 import { findDocuments, aggregateDocuments, insertMany, updateOneDocument, insertOneDocument, findOneDocument } from '../../repositories/mongo/common.js';
 import { getFbAdPreview, getPropsOfSource } from './preview.service.js';
+import { logProgress } from '../../utils/logger.js';
 
 export async function updateMessagesAndLinks(uuid, clientId) {
   const client = await findOneDocument('clients', { _id: clientId });
@@ -15,7 +16,10 @@ export async function updateMessagesAndLinks(uuid, clientId) {
 }
 
 export async function generateProduct(uuid, clientId, agencyId) {
-  const tags = await aggregateDocuments('tags', [
+  logProgress('enrichment.products.build.start', { clientId: String(clientId) }, { uuid });
+  let tags;
+  try {
+  tags = await aggregateDocuments('tags', [
     { $match: { client_id: clientId } },
     { $sort: { _id: 1 } },
     { $project: { _id: 0, category: 1, tag: 1, description: 1 } },
@@ -25,16 +29,41 @@ export async function generateProduct(uuid, clientId, agencyId) {
     { $project: { _id: 0, categories: { $map: { input: { $filter: { input: '$categories', as: 'c', cond: { $and: [ { $ne: ['$$c.k', null] }, { $ne: ['$$c.k', ''] }, { $ne: ['$$c.v', null] } ] } } }, as: 'c', in: { k: '$$c.k', v: '$$c.v' } } } } },
     { $replaceRoot: { newRoot: { $arrayToObject: '$categories' } } }
   ]);
+  } catch (e) {
+    logProgress('enrichment.products.build.tags.fallback', { error: String(e?.message || e) }, { uuid });
+    const rows = await findDocuments('tags', { client_id: clientId }, { category: 1, tag: 1, description: 1 });
+    const categoriesObj = {};
+    for (const r of rows) {
+      if (!r?.category || !r?.tag || r?.tag === '') continue;
+      categoriesObj[r.category] = categoriesObj[r.category] || {};
+      if (r.description !== null && r.description !== undefined) categoriesObj[r.category][r.tag] = r.description;
+    }
+    tags = [categoriesObj];
+  }
   if (tags.length > 1) return;
-  const categories = await aggregateDocuments('tags_categories', [
+  let categories;
+  try {
+  categories = await aggregateDocuments('tags_categories', [
     { $match: { client_id: clientId } },
     { $sort: { _id: 1 } },
     { $group: { _id: null, categoryDescriptions: { $push: { k: '$category', v: { $ifNull: ['$description', ''] } } } } },
     { $project: { _id: 0, categoryDescriptions: { $map: { input: { $filter: { input: '$categoryDescriptions', as: 'kv', cond: { $and: [ { $ne: ['$$kv.k', null] }, { $ne: ['$$kv.k', ''] }, { $ne: ['$$kv.v', null] } ] } } }, as: 'kv', in: { k: '$$kv.k', v: '$$kv.v' } } } } },
     { $replaceRoot: { newRoot: { $arrayToObject: '$categoryDescriptions' } } }
   ]);
+  } catch (e) {
+    logProgress('enrichment.products.build.categories.fallback', { error: String(e?.message || e) }, { uuid });
+    const rows = await findDocuments('tags_categories', { client_id: clientId }, { category: 1, description: 1 });
+    const catObj = {};
+    for (const r of rows) {
+      if (!r?.category) continue;
+      catObj[r.category] = r.description || '';
+    }
+    categories = [catObj];
+  }
   // This function previously orchestrated OpenAI extraction calls; leave implementation to enrichment.openai or calling code.
-  return { categories: categories[0] };
+  const result = { categories: categories[0] };
+  logProgress('enrichment.products.build.done', { categories: Object.keys(result.categories || {}).length }, { uuid });
+  return result;
 }
 
 
