@@ -1,0 +1,122 @@
+openapi: 3.0.3
+info:
+  title: fb_insight API
+  version: 1.0.0
+  description: |
+    API for importing and processing Facebook Ads data with optional Athena merge and enrichment.
+servers:
+  - url: http://localhost:3000
+paths:
+  /run-task:
+    post:
+      summary: Enqueue Facebook Ads insights import task
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunTaskRequest'
+      responses:
+        '200':
+          description: Enqueued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+  /run-ad-library:
+    post:
+      summary: Enqueue Facebook Ad Library import task
+      tags: [tasks]
+      security:
+        - StaticToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunAdLibraryRequest'
+      responses:
+        '200':
+          description: Enqueued
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    StaticToken:
+      type: apiKey
+      in: header
+      name: Authorization
+  schemas:
+    RunTaskRequest:
+      type: object
+      required: [fbAccessToken, FBadAccountId, start_date, end_date, agencyId, clientId, userId, importListName, uuid]
+      properties:
+        fbAccessToken:
+          type: string
+        FBadAccountId:
+          type: string
+          example: act_123456789
+        start_date:
+          type: string
+          format: date
+          example: 2025-04-01
+        end_date:
+          type: string
+          format: date
+          example: 2025-04-30
+        agencyId:
+          type: string
+        clientId:
+          type: string
+        userId:
+          type: string
+        importListName:
+          type: string
+        uuid:
+          type: string
+        ad_objective_id:
+          type: string
+        ad_objective_field_expr:
+          type: string
+        ai:
+          type: string
+          description: Tagging AI provider
+    RunAdLibraryRequest:
+      type: object
+      required: [fbAccessToken, FBadAccountId, start_date, end_date]
+      properties:
+        fbAccessToken:
+          type: string
+        FBadAccountId:
+          type: string
+          example: act_123456789
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        search_page_ids:
+          type: string
+          example: "['98269389167']"
+        max_count:
+          type: integer
+          minimum: 1
+          maximum: 500
+

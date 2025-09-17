@@ -1,29 +1,30 @@
-import * as Sentry from "@sentry/node"
 import dotenv from 'dotenv';
-import express from 'express';
 import axios from 'axios';
-import {MongoClient, ObjectId} from 'mongodb';
-import {
-    AthenaClient,
-    StartQueryExecutionCommand,
-    GetQueryExecutionCommand,
-    GetQueryResultsCommand
-} from "@aws-sdk/client-athena";
+import {ObjectId} from 'mongodb';
+import { findDocuments as findDocumentsRepo, insertMany as insertManyRepo, findOneDocument as findOneDocumentRepo, aggregateDocuments as aggregateDocumentsRepo, updateOneDocument as updateOneDocumentRepo, updateManyDocuments as updateManyDocumentsRepo, insertOneDocument as insertOneDocumentRepo, findAndUpdate as findAndUpdateRepo } from './src/repositories/mongo/common.js';
+import { runAthenaQuery as runAthenaQuerySvc } from './src/services/athena/athena.service.js';
+import { saveFacebookImportStatus as saveFacebookImportStatusSvc } from './src/services/status/status.service.js';
+import { sendHttpRequest as sendHttpRequestSvc } from './src/utils/http.js';
+import { getAdsInsights as getAdsInsightsSvc } from './src/services/facebook/facebook.service.js';
+import { getAdsLibrary as getAdsLibrarySvc } from './src/services/facebook/adLibrary.service.js';
+import { FIELDS as FB_FIELDS } from './src/services/facebook/fields.js';
+import { default_schema as DEFAULT_SCHEMA, buildClientSchema } from './src/services/reporting/schema.defaults.js';
+import { calculateMetrics as calculateMetricsSvc, fillMissingFields as fillMissingFieldsSvc } from './src/services/reporting/metrics.service.js';
+import { transformObjects as transformObjectsSvc, findMostSimilarKey as findMostSimilarKeySvc, getPercentFields as getPercentFieldsSvc } from './src/services/reporting/mapping.service.js';
+import { processData as processDataSvc, NormalizeNumberObjects as NormalizeNumberObjectsSvc, detectAndNormalizePercentageInObjects as detectAndNormalizePercentageInObjectsSvc } from './src/services/reporting/process.service.js';
+import { convertToObject as convertToObjectSvc, findNonEmptyKeys as findNonEmptyKeysSvc } from './src/services/reporting/transform.service.js';
+import { getFbAdPreview as getFbAdPreviewSvc, getPropsOfSource as getPropsOfSourceSvc, removeUTM as removeUTMSvc } from './src/services/enrichment/preview.service.js';
+import { updateMessagesAndLinks as updateMessagesAndLinksSvc, generateProduct as generateProductSvc } from './src/services/enrichment/product.service.js';
+import { tagging as taggingSvc } from './src/services/enrichment/tagging.service.js';
 
-Sentry.init({
-    dsn: "https://a51aca261c977758f4342257034a5d59@o1178736.ingest.us.sentry.io/4508958246043648",
-});
+// Sentry is initialized in src/server.js
 dotenv.config();
-const uri = process.env.mongodb_uri;
 const BASE_URL = "https://graph.facebook.com/v22.0";
 const fluxAPIBaseUrl = "https://flux-api.afarin.top";
 const fluxAPIkey = process.env.FLUX_STATIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-const client = new MongoClient(uri, {
-    family: 4  // Force IPv4
-});
-const dbName = 'FluxDB';
-const FIELDS = [
+// Facebook fields now provided by FB_FIELDS from services
+/* const FIELDS = [
     // "ad_quality_ranking",
     "engagement_rate_ranking",
     "conversion_rate_ranking",
@@ -125,8 +126,10 @@ const FIELDS = [
     "video_time_watched_actions",
     "website_ctr",
     "website_purchase_roas",
-].join(",");
-let default_schema = [
+].join(","); */
+import { default_schema as DEFAULT_SCHEMA, buildClientSchema } from './src/services/reporting/schema.defaults.js'
+const default_schema = DEFAULT_SCHEMA; /* moved to schema.defaults.js */
+/*
     {
         "key": "Ad_Name",
         "title": "Ad Name",
@@ -628,1553 +631,77 @@ let default_schema = [
         "format": "text",
         "formula": "N/A"
     }
-]
-const athena = new AthenaClient({
-    region: process.env.AWS_REGION || "us-east-1",
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-    }
-})
-const app = express();
-app.set('trust proxy', 1);
-app.use(express.json({ limit: '10mb' }));
-// Static authentication token
-const STATIC_TOKEN = 'KV5NfjBPaN9JDWqbDXrjQGoyeMtQWyfG16nTHmUPXFw='; // Replace with a secure, randomly generated token
+*/
+// Athena client initialization moved to src/services/athena/athena.service.js
+// HTTP app and routes are defined in src/app.js; keep this file focused on domain functions
+// Athena query moved to src/services/athena/athena.service.js
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function transformAthenaResult(results) {
-    // Check if the results have at least one row (headers) and one data row.
-    const rows = results.ResultSet.Rows;
-    if (!rows || rows.length < 2) {
-        return [];
-    }
-
-    // Extract headers from the first row.
-    const headers = rows[0].Data.map(col => col.VarCharValue);
-
-    // Regex to check valid number string: optional sign, at least one digit, optional fraction.
-    const numericRegex = /^[+-]?\d+(\.\d+)?$/;
-
-    // Process the rest of the rows.
-    return rows.slice(1).map(row => {
-        const record = {};
-        row.Data.forEach((col, idx) => {
-            let value = col.VarCharValue;
-            // Only attempt conversion if value is non-empty.
-            if (value !== undefined && value !== null && value !== '') {
-                // If value matches the numeric regex, convert it to a number.
-                if (numericRegex.test(value)) {
-                    value = Number(value);
-                }
-            }
-            record[headers[idx]] = value;
-        });
-        return record;
-    });
-}// Function to run the Athena query
-const runAthenaQuery = async (start_date, end_date) => {
-    // Build the SQL query with the given date parameters.
-    // Note: Athena expects dates in the format DATE 'YYYY-MM-DD'
-    const query = `
-        WITH last_file AS (SELECT "$path" AS latest_file
-                           FROM sonobellodata
-                           ORDER BY "$path" DESC
-            LIMIT 1
-            )
-        SELECT "opportunity source code"                   AS code,
-               ANY_VALUE("opportunity source name")        AS ad_name,
-               SUM(CAST(leads AS BIGINT))                  AS lead,
-               SUM(CAST(appointments AS BIGINT))           AS appts,
-               SUM(CAST(shows AS BIGINT))                  AS show,
-               SUM(CAST(sold AS BIGINT))                   AS sold,
-               SUM(CAST(sales_price AS DECIMAL(10, 2)))    AS sales_price,
-               SUM(CAST(cash_collected AS DECIMAL(10, 2))) AS cash_collected,
-               SUM(CAST(red_apps AS BIGINT))               AS red_appts,
-               SUM(CAST(yellow_apps AS BIGINT))            AS yellow_appts,
-               SUM(CAST(green_apps AS BIGINT))             AS green_appts
-        FROM sonobellodata
-        WHERE "$path" = (SELECT latest_file FROM last_file)
-          AND TRY(CAST(date_parse(opportunity_created_date, '%Y-%m-%d') AS DATE))
-            BETWEEN DATE '${start_date}' AND DATE '${end_date}'
-        GROUP BY "opportunity source code";  `;
-    // Set the parameters for Athena query execution using environment variables for configuration
-    const params = {
-        QueryString: query,
-        QueryExecutionContext: {
-            Database: process.env.ATHENA_DATABASE
-        },
-        ResultConfiguration: {
-            OutputLocation: process.env.ATHENA_OUTPUT_LOCATION
-        }
-    };
-    try {
-        // Start the query execution
-        const startCmd = new StartQueryExecutionCommand(params);
-        const { QueryExecutionId } = await athena.send(startCmd);
-        // const {QueryExecutionId} = await athena.startQueryExecution(params).promise();
-        console.log(`Query submitted successfully. Execution ID: ${QueryExecutionId}`);
-
-        // Poll for query status until it is no longer RUNNING or QUEUED
-        let status = 'RUNNING';
-        while (status === 'RUNNING' || status === 'QUEUED') {
-            const execCmd = new GetQueryExecutionCommand({ QueryExecutionId });
-            const {
-                QueryExecution: { Status }
-            } = await athena.send(execCmd);
-            // const {
-            //     QueryExecution: {Status}
-            // } = await athena.getQueryExecution({QueryExecutionId}).promise();
-            status = Status.State;
-            console.log(`Current query status: ${status}`);
-            if (status === 'RUNNING' || status === 'QUEUED') {
-                await sleep(2000); // Wait for 2 seconds before polling again
-            }
-        }
-
-        // Check query status and process results if the query succeeded
-        if (status === 'SUCCEEDED') {
-            const resultsCmd = new GetQueryResultsCommand({ QueryExecutionId });
-            let results = await athena.send(resultsCmd);
-            // let results = await athena.getQueryResults({QueryExecutionId}).promise();
-            results = transformAthenaResult(results);
-            return results;
-        } else {
-            console.error(`Query did not succeed. Final status: ${status}`);
-        }
-    } catch (error) {
-        console.error('Error running query:', error);
-    }
-};
-
-// Authentication middleware
-const authenticate = (req, res, next) => {
-    const authToken = req.headers['authorization'];
-    if (!authToken || authToken !== STATIC_TOKEN) {
-        return res.status(401).send({success: false, message: 'Unauthorized'});
-    }
-    next();
-};
+// Authentication middleware moved to src/middlewares/auth.js
 
 // Background task wrapper
-const runInBackground = (task, params) => {
-    setTimeout(() => {
-        task(params).catch(err => console.error('Background task failed:', err));
-    }, 0); // Run immediately but asynchronously
-};
+// runInBackground replaced by BullMQ queues
 
-async function connectToCollection(collectionName) {
-    try {
-        await client.connect();
-        const database = client.db(dbName);
-        return database.collection(collectionName);
-    } catch (error) {
-        console.error("Error connecting to MongoDB: ", error);
-        throw error;
-    }
-}
-
-async function findDocuments(collectionName, query, projection = {}, sort = {}) {
-    try {
-        const collection = await connectToCollection(collectionName);
-        return await collection.find(query, {projection}).sort(sort).toArray();
-    } catch (error) {
-        console.error("Error finding documents: ", error);
-        throw error;
-    }
-}
-
-async function insertMany(collectionName, documents) {
-    try {
-        const collection = await connectToCollection(collectionName);
-        return await collection.insertMany(documents);
-    } catch (error) {
-        console.error("Error inserting many documents: ", error);
-        throw error;
-    }
-}
-
-async function findOneDocument(collectionName, query, projection = {}, sort = {}) {
-    try {
-        const collection = await connectToCollection(collectionName);
-        return await collection.findOne(query, {projection, sort});
-    } catch (error) {
-        console.error("Error finding one document: ", error);
-        throw error;
-    }
-}
-
-async function aggregateDocuments(collectionName, pipeline) {
-  try {
-    const collection = await connectToCollection(collectionName);
-    return await collection.aggregate(pipeline).toArray();
-  } catch (error) {
--   console.error("Error aggregating documents: ", error);
-+   console.error(`Error aggregating documents in "${collectionName}" with pipeline:`,
-+     JSON.stringify(pipeline, null, 2), "\nError:", error);
-    throw error;
-  }
-}
-
-
-async function updateOneDocument(collectionName, filter, update, options = {upsert: true}) {
-    try {
-        const collection = await connectToCollection(collectionName);
-        return await collection.updateOne(filter, update, options);
-    } catch (error) {
-        console.error("Error updating one document: ", error);
-        throw error;
-    }
-}
-
-async function updateManyDocuments(collectionName, filter, update) {
-    try {
-        const collection = await connectToCollection(collectionName);
-        return await collection.updateMany(filter, update);
-    } catch (error) {
-        console.error("Error updating many documents: ", error);
-        throw error;
-    }
-}
-
-async function insertOneDocument(collectionName, document) {
-    try {
-        const collection = await connectToCollection(collectionName);
-        return await collection.insertOne(document);
-    } catch (error) {
-        console.error("Error inserting one document: ", error);
-        throw error;
-    }
-}
-
-async function findAndUpdate(collectionName, filter, update, options = {}) {
-    try {
-        const collection = await connectToCollection(collectionName);
-        return await collection.findOneAndUpdate(filter, update, options);
-    } catch (error) {
-        console.error("Error finding and updating document: ", error);
-        throw error;
-    }
-}
-
-function sendAlert(message) {
-    console.log(`⚠️ ALERT: ${message}`);
-}
-
-async function sendHttpRequest({url, method = 'GET', headers = {}, body = null, timeout = 180000}) {
-    const maxAttempts = 8; // Maximum retry attempts
-    let attempt = 0;
-
-    while (attempt < maxAttempts) {
-        try {
-            // Log the attempt
-            // console.log(`Attempt ${attempt + 1}: Sending ${method} request to ${url}`);
-
-            // Send the HTTP request
-            const response = await axios({
-                url,
-                method,
-                headers,
-                data: body,
-                timeout,
-            });
-
-            // Check the response status
-            if (response.status === 200) {
-                // Validate the response data
-                if (method === "POST") {
-                    const invalidItems = response.data.filter(item => item?.code !== 200);
-                    if (invalidItems.length > 0) {
-                        throw new Error(JSON.stringify(response.data));
-                    }
-                }
-                // console.log('Request succeeded:', response.data);
-                return response.data; // Return the valid response data
-            }
-
-            throw new Error('Unexpected response status!');
-        } catch (error) {
-            attempt++;
-
-            // Log the error and retry if attempts remain
-            console.error(`Error during attempt ${attempt}: ${error.message}`);
-
-            if (attempt < maxAttempts) {
-                const delay = (attempt + 1) * 2000; // Dynamic backoff delay
-                console.warn(`Retrying in ${delay / 1000} seconds...`);
-
-                // Send an alert on the third attempt or beyond
-                if (attempt >= 3) {
-                    sendAlert(`Request rate limit encountered. Attempt ${attempt}. Retrying in ${delay / 1000} seconds.`);
-                }
-
-                // Wait before retrying
-                await new Promise(resolve => setTimeout(resolve, delay));
-            } else {
-                // Log and send a final alert if max attempts are reached
-                console.error('Max retry attempts reached. Unable to fetch data.');
-                sendAlert('Maximum retry attempts reached. Please investigate API limits.');
-            }
-        }
-    }
-
-    // If the function exits the loop, return null (indicates failure)
-    return null;
-}
-
-function convertListsToDict(data) {
-    if (typeof data !== 'object' || data === null) {
-        // Return the data as-is if it's not an object or is null
-        return data;
-    }
-
-    for (const [key, value] of Object.entries(data)) {
-        if (Array.isArray(value)) {
-            if (value.every(item => typeof item === 'object' && item !== null && 'action_type' in item && 'value' in item)) {
-                data[key] = value.reduce((acc, item) => {
-                    acc[item.action_type.replace(".", "_")] = Array.isArray(item.value)
-                        ? item.value
-                        : parseFloat(item.value);
-                    return acc;
-                }, {});
-            } else {
-                data[key] = value.map(item =>
-                    typeof item === 'object' && item !== null
-                        ? convertListsToDict(item)
-                        : item
-                );
-            }
-        } else if (typeof value === 'object' && value !== null) {
-            data[key] = convertListsToDict(value);
-        } else if (typeof value === 'string') {
-            if (!key.includes('_id') && !isNaN(value)) {
-                data[key] = value.includes('.') ? parseFloat(value) : parseInt(value, 10);
-            } else {
-                try {
-                    const parsedDate = new Date(value);
-                    if (!isNaN(parsedDate)) {
-                        data[key] = parsedDate;
-                    }
-                } catch (e) {
-                    // Ignore parsing errors
-                }
-            }
-        }
-    }
-    return data;
-}
+// MongoDB helpers moved to src/repositories/mongo/common.js
 
 // A safe AST‐based formula compiler in plain JavaScript, with support for + - * / **, parentheses, and sqr(x).
 
-// You’ll need to install/acquire a JS parser like acorn:
+// You'll need to install/acquire a JS parser like acorn:
 //    npm install acorn
-import {parseExpressionAt} from "acorn";
+// Metrics forward-fill helpers moved to src/services/reporting/metrics.service.js
 
-const ALLOWED_BINARY_OPS = new Set(["+", "-", "*", "/", "**"]);
-const ALLOWED_UNARY_OPS = new Set(["+", "-"]);
-const ALLOWED_FUNCTIONS = {
-    sqr: (x) => x * x,
-};
 
-function validateNode(node) {
-    switch (node.type) {
-        case "Literal":
-            if (typeof node.value !== "number") {
-                throw new Error(`Non-numeric literal: ${node.value}`);
-            }
-            break;
+// fetchAds/fetchBatchData moved to src/services/facebook/facebook.service.js
+// getAdsInsights moved to src/services/facebook/facebook.service.js
 
-        case "Identifier":
-            // variable lookup is allowed
-            break;
+// getAdsLibrary moved to src/services/facebook/adLibrary.service.js
 
-        case "BinaryExpression":
-            if (!ALLOWED_BINARY_OPS.has(node.operator)) {
-                throw new Error(`Unsupported operator: ${node.operator}`);
-            }
-            validateNode(node.left);
-            validateNode(node.right);
-            break;
 
-        case "UnaryExpression":
-            if (!ALLOWED_UNARY_OPS.has(node.operator)) {
-                throw new Error(`Unsupported unary operator: ${node.operator}`);
-            }
-            validateNode(node.argument);
-            break;
+// convertToObject moved to src/services/reporting/transform.service.js
 
-        case "CallExpression":
-            if (
-                node.callee.type !== "Identifier" ||
-                !(node.callee.name in ALLOWED_FUNCTIONS) ||
-                node.arguments.length !== 1
-            ) {
-                throw new Error(`Unsupported function call: ${node.callee.name}`);
-            }
-            validateNode(node.arguments[0]);
-            break;
+// findNonEmptyKeys moved to src/services/reporting/transform.service.js
 
-        case "ExpressionStatement":
-            validateNode(node.expression);
-            break;
+// transformObjects moved to src/services/reporting/mapping.service.js
 
-        default:
-            throw new Error(`Unsupported syntax node: ${node.type}`);
-    }
-}
+// jaroWinklerDistance moved to src/services/reporting/mapping.service.js
 
-function evaluateNode(node, row) {
-    switch (node.type) {
-        case "Literal":
-            return node.value;
+// findMostSimilarKey moved to src/services/reporting/mapping.service.js
 
-        case "Identifier":
-            return row[node.name];
+// getPercentFields moved to src/services/reporting/mapping.service.js
 
-        case "BinaryExpression": {
-            const l = evaluateNode(node.left, row);
-            const r = evaluateNode(node.right, row);
-            if (l == null || r == null) return null;
-            switch (node.operator) {
-                case "+":
-                    return l + r;
-                case "-":
-                    return l - r;
-                case "*":
-                    return l * r;
-                case "/":
-                    return r === 0 ? null : l / r;
-                case "**":
-                    return Math.pow(l, r);
-            }
-        }
+// parseFormulaOld moved to src/services/reporting/metrics.service.js
 
-        case "UnaryExpression": {
-            const v = evaluateNode(node.argument, row);
-            if (v == null) return null;
-            return node.operator === "-" ? -v : +v;
-        }
+// calculateMetrics moved to src/services/reporting/metrics.service.js
 
-        case "CallExpression": {
-            const fn = ALLOWED_FUNCTIONS[node.callee.name];
-            const arg = evaluateNode(node.arguments[0], row);
-            if (arg == null) return null;
-            return fn(arg);
-        }
+// cleanData moved to src/services/reporting/process.service.js
 
-        default:
-            return null; // should never reach
-    }
-}
+// getFieldType moved to src/services/reporting/process.service.js
 
-function compileFormula(expr) {
-    // parse the expression at position 0
-    const node = parseExpressionAt(expr, 0, {ecmaVersion: 2020});
-    validateNode(node);
-    return (row) => {
-        try {
-            return evaluateNode(node, row);
-        } catch {
-            return null;
-        }
-    };
-}
+// processRow moved to src/services/reporting/process.service.js
 
-export function buildForwardCalculators(schema) {
-    const forward = {};
-    for (const {key, formula} of schema) {
-        if (!formula || formula.toUpperCase() === "N/A") {
-            forward[key] = null;
-        } else {
-            try {
-                forward[key] = compileFormula(formula);
-            } catch (err) {
-                console.warn(`Invalid formula for ${key}: ${err.message}`);
-                forward[key] = null;
-            }
-        }
-    }
-    return forward;
-}
+// processData moved to src/services/reporting/process.service.js
 
-export function fillMissingFields(rows, schema, maxIterations = 5) {
-    const forward = buildForwardCalculators(schema);
-    let iteration = 0;
+// capitalizeFirstChar moved to src/services/reporting/process.service.js
 
-    while (iteration < maxIterations) {
-        let changed = false;
-        for (const row of rows) {
-            for (const {key} of schema) {
-                if (row[key] == null && typeof forward[key] === "function") {
-                    const val = forward[key](row);
-                    if (val != null) {
-                        row[key] = val;
-                        changed = true;
-                    }
-                }
-            }
-        }
-        if (!changed) break;
-        iteration++;
-    }
+// NormalizeNumberObjects moved to src/services/reporting/process.service.js
 
-    return rows;
-}
+// detectAndNormalizePercentageInObjects moved to src/services/reporting/process.service.js
 
 
-const fetchAds = async (url, fbAccessToken) => {
-    try {
-        return await sendHttpRequest({
-            url,
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${fbAccessToken}`,
-                "Content-Type": "gzip"
-            }
-        });
-    } catch (error) {
-        console.error(`Error: ${error}`);
-        console.error(`Error fetching ads: ${error.response?.status}`);
-        return null;
-    }
-};
-const fetchBatchData = async (batchRequests, fbAccessToken) => {
-    try {
-        return await sendHttpRequest({
-            url: BASE_URL,
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${fbAccessToken}`,
-                "Content-Type": "application/json",
-            },
-            body: {batch: batchRequests}
-        });
-    } catch
-        (error) {
-        console.log(error.response, batchRequests)
-        console.error(`Error in batch request: ${error.response?.status}`);
-        return null;
-    }
-};
-const getAdsInsights = async (accountId, fbAccessToken, start_date, end_date, uuid) => {
-    const adsUrl = `${BASE_URL}/${accountId}/insights?level=ad&fields=ad_id&limit=50&action_breakdowns=action_type&time_range={"since":"${start_date}","until":"${end_date}"}`;
-    let insights = [];
-    let nextPage = adsUrl;
+// saveFacebookImportStatus moved to src/services/status/status.service.js
 
-    while (nextPage) {
-        const adsResponse = await fetchAds(nextPage, fbAccessToken);
-        if (!adsResponse) break;
+// getFbAdPreview moved to src/services/enrichment/preview.service.js
 
-        const adData = adsResponse?.data || [];
-        const adIds = adData.map((ad) => ad.ad_id);
+// getSource moved to src/services/enrichment/preview.service.js
 
-        const insightsBatchRequests = adIds.map((adId) => ({
-            method: "GET",
-            relative_url: `${adId}/insights?level=ad&fields=${FIELDS}&time_range={"since":"${start_date}","until":"${end_date}"}`,
-        }));
+// extractAndDecode moved to src/services/enrichment/preview.service.js
 
-        const adDetailBatchRequests = adIds.map((adId) => ({
-            method: "GET",
-            relative_url: `${adId}?fields=status,creative{id,name,video_id,object_id,product_data,product_set_id,object_story_id,effective_object_story_id,object_story_spec,object_store_url,object_type,thumbnail_id,destination_set_id,instagram_permalink_url,link_og_id,link_url,object_url},source_ad_id,name,preview_shareable_link`,
-        }));
+// removeUTM moved to src/services/enrichment/preview.service.js
 
-        const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests, fbAccessToken)) || [];
-        const adDetailBatchResponse = (await fetchBatchData(adDetailBatchRequests, fbAccessToken)) || [];
-        const adDetailBatch = {};
-        adDetailBatchResponse.forEach((item) => {
-            if (item.body) {
-                const bodyData = JSON.parse(item.body);
-                adDetailBatch[bodyData.id] = bodyData;
-            }
-        });
+// getPropsOfSource moved to src/services/enrichment/preview.service.js
 
-        if (insightsBatchResponse && adDetailBatchResponse) {
-            insightsBatchResponse.forEach((result) => {
-                if (result.body) {
-                    const insightData = convertListsToDict(JSON.parse(result.body)?.data?.[0]);
-                    const creativeData = adDetailBatch[insightData.ad_id]?.creative || {};
-                    const status = adDetailBatch[insightData.ad_id]?.status || {};
-                    const post_url = creativeData.effective_object_story_id
-                        ? `https://www.facebook.com/${creativeData.effective_object_story_id}`
-                        : null;
+// updateMessagesAndLinks moved to src/services/enrichment/product.service.js
 
-                    // Extract product link from creative
-                    insights.push({
-                        ...insightData,
-                        creative: creativeData,
-                        status,
-                        post_url,
-                        format: creativeData?.object_type || null,
-                    });
-                }
-            });
-            await saveFacebookImportStatus(uuid, {
-                insights_count: insights.length
-            })
-        }
-
-        nextPage = adsResponse.paging?.next;
-    }
-
-    return insights;
-};
-
-const getAdsLibrary = async (accountId, fbAccessToken, start_date, end_date, uuid,search_page_ids="['98269389167']", max_count = 50) => {
-    const adsUrl = `${BASE_URL}/ads_archive?access_token=${fbAccessToken}&ad_type=ALL&ad_reached_countries=['US']&search_page_ids=${search_page_ids}&ad_delivery_date_min=${start_date}&ad_delivery_date_max=${end_date}&ad_active_status=ALL&fields=id,page_name,ad_snapshot_url,ad_delivery_start_time,ad_delivery_stop_time`;
-    let ads = [];
-    let nextPage = adsUrl;
-
-    while (nextPage && ads.length < max_count) {
-        const adsResponse = await fetchAds(nextPage, fbAccessToken);
-        if (!adsResponse) break;
-        const adData = adsResponse?.data || [];
-        ads.push(...adData);
-        nextPage = adsResponse.paging?.next;
-        await saveFacebookImportStatus(uuid, {
-            ads_count: ads.length
-        })
-    }
-    return ads;
-};
-
-
-function convertToObject(data, ad_objective_field_expr, ad_objective_id, extraFields = []) {
-    const expr = ad_objective_field_expr.split(".");
-
-    return data.map((item) => {
-        const {
-            ad_name,
-            impressions,
-            reach,
-            ctr,
-            frequency,
-            spend,
-            cpp,
-            cpm,
-            post_url,
-            ad_id,
-            format,
-            conversion_rate_ranking,
-            engagement_rate_ranking,
-            adset_name,
-            campaign_name,
-            ...restOfItem
-        } = item;
-
-        const extraFieldsValues = extraFields.reduce((acc, field) => {
-            acc[field] = item[field];
-            return acc;
-        }, {});
-
-        return {
-            Ad_Name: ad_name || "null_name",
-            impressions: impressions || null,
-            reach: reach || null,
-            ctr: ctr || null,
-            frequency: frequency || null,
-            spend: spend || null,
-            cpp: cpp || null,
-            cpm: cpm || null,
-            link_click: item.actions?.link_click || null,
-            purchase: item.actions?.purchase || null,
-            vvr:  impressions ? ((item.actions?.video_view ?? 0) / impressions) : 0,
-            hold: impressions ? ((item.video_thruplay_watched_actions?.video_view ?? 0) / impressions) : 0,
-            cpa: item.cost_per_action_type?.purchase || null,
-            cvr: item.actions?.link_click
-                ? (item?.[expr[0]]?.[expr[1]] ? item[expr[0]][expr[1]] / item.actions?.link_click : 0)
-                : null,
-            roas: item.purchase_roas?.omni_purchase || null,
-            cpc: item.cost_per_action?.link_click || (item.actions?.link_click ? spend / item.actions?.link_click : null),
-            cpl: item.cost_per_action?.lead || null,
-            revenue: item.action_values?.purchase || null,
-            video_views_3s: item.actions?.video_view || null,
-            video_views_15s: item.video_thruplay_watched_actions?.video_view || null,
-            video_avg_time_watched: item.video_avg_time_watched_actions?.video_view || null,
-            video_p25_watched: item.video_p25_watched_actions?.video_view || null,
-            video_p50_watched: item.video_p50_watched_actions?.video_view || null,
-            video_p75_watched: item.video_p75_watched_actions?.video_view || null,
-            video_p95_watched: item.video_p95_watched_actions?.video_view || null,
-            video_p100_watched: item.video_p100_watched_actions?.video_view || null,
-            momentum_rate: item.video_p25_watched_actions?.video_view ? item.video_p75_watched_actions?.video_view / item.video_p25_watched_actions?.video_view : null,
-            // [ad_objective_id] :  item?.[expr[0]]?.[expr[1]],
-            result: item?.[expr[0]]?.[expr[1]],
-            cpr: item?.[expr[0]]?.[expr[1]] ? spend / item[expr[0]][expr[1]] : Infinity,
-            post_url,
-            ad_id,
-            format,
-            conversion_rate_ranking,
-            engagement_rate_ranking,
-            campaign_name,
-            adset_name,
-            ...extraFieldsValues,
-            other_fields: {
-                ...restOfItem,
-            },
-        };
-    });
-}
-
-function findNonEmptyKeys(array) {
-    const keysWithValues = new Set();
-    array.forEach(obj => {
-        for (const [key, value] of Object.entries(obj)) {
-            if (value !== null && value !== "") {
-                keysWithValues.add(key);
-            }
-        }
-    });
-    return Array.from(keysWithValues);
-}
-
-function transformObjects(data) {
-    return data.map(obj => ({
-        [obj.key]: {
-            key: obj.key,
-            is_default: obj.is_default,
-            title: obj.title,
-            description: obj.description,
-            required: obj.required,
-            type: obj.type,
-            format: obj.format || null,
-            formula: obj.formula || null,
-            similar_dictionary: obj.similar_dictionary || [] // Ensure similar_dictionary is initialized as an array
-        }
-    }));
-}
-
-function jaroWinklerDistance(s1, s2) {
-    let m = 0;
-
-    if (s1.length === 0 || s2.length === 0) return 0;
-    if (s1 === s2) return 1;
-
-    const range = Math.floor(Math.max(s1.length, s2.length) / 2) - 1;
-    const s1Matches = new Array(s1.length);
-    const s2Matches = new Array(s2.length);
-
-    for (let i = 0; i < s1.length; i++) {
-        const low = (i >= range) ? i - range : 0;
-        const high = (i + range <= s2.length - 1) ? i + range : s2.length - 1;
-
-        for (let j = low; j <= high; j++) {
-            if (!s1Matches[i] && !s2Matches[j] && s1[i] === s2[j]) {
-                m++;
-                s1Matches[i] = s2Matches[j] = true;
-                break;
-            }
-        }
-    }
-
-    if (m === 0) return 0;
-
-    let k = 0;
-    let numTrans = 0;
-    for (let i = 0; i < s1.length; i++) {
-        if (s1Matches[i]) {
-            for (let j = k; j < s2.length; j++) {
-                if (s2Matches[j]) {
-                    k = j + 1;
-                    break;
-                }
-            }
-            if (s1[i] !== s2[k - 1]) numTrans++;
-        }
-    }
-
-    let weight = (m / s1.length + m / s2.length + (m - (numTrans / 2)) / m) / 3;
-    const l = Math.min(4, [...s1].findIndex((c, i) => c !== s2[i]) + 1);
-    const p = 0.1;
-
-    if (weight > 0.7) weight += l * p * (1 - weight);
-
-    return weight;
-}
-
-function findMostSimilarKey(item, array1) {
-    let maxSimilarity = -1;
-    let mostSimilarKey = null;
-
-    array1.forEach(obj => {
-        const key = Object.keys(obj)[0];
-        let similarity = 0;
-
-        if (obj[key].similar_dictionary.length !== 0) {
-            obj[key].similar_dictionary.forEach(similarItem => {
-                similarity = Math.max(similarity, jaroWinklerDistance(item.toLowerCase(), similarItem.toLowerCase()));
-            });
-        } else {
-            similarity = jaroWinklerDistance(item.toLowerCase(), key.toLowerCase());
-        }
-
-        if (similarity > maxSimilarity) {
-            maxSimilarity = similarity;
-            mostSimilarKey = key;
-        }
-    });
-
-    return {key: mostSimilarKey, similarity: maxSimilarity};
-}
-
-function getPercentFields(arr) {
-    return arr.filter(item => item.format === 'percent').map(item => item.key);
-}
-
-function parseFormulaOld(formula) {
-    const dependentFields = formula.match(/([a-zA-Z_]+)/g) || [];
-    const formulaFunction = new Function(
-        ...dependentFields,
-        `return ${formula};`
-    );
-    return {
-        dependentFields,
-        formulaFunction
-    };
-}
-
-function calculateMetrics(inputValues, metrics) {
-    let calculatedValues = {...inputValues};
-
-    const dependencies = {};
-    metrics.forEach(metric => {
-        if (metric.formula !== "N/A") {
-            dependencies[metric.key] = parseFormulaOld(metric.formula);
-        }
-    });
-
-    let pending = true;
-    let previousPendingCount = Object.keys(calculatedValues).length;
-
-    while (pending) {
-        pending = false;
-        metrics.forEach(metric => {
-            if (calculatedValues[metric.key] === undefined && dependencies[metric.key]) {
-                const {dependentFields, formulaFunction} = dependencies[metric.key];
-                const missingFields = dependentFields.filter(field => calculatedValues[field] === undefined);
-
-                if (missingFields.length === 0) {
-                    const result = formulaFunction(...dependentFields.map(field => calculatedValues[field]));
-                    if (result !== null && !isNaN(result)) {
-                        calculatedValues[metric.key] = result;
-                    }
-                    pending = true;
-                }
-            }
-        });
-
-        const currentPendingCount = Object.keys(calculatedValues).length;
-
-        // Break the loop if no progress is made to prevent an infinite loop
-        if (currentPendingCount === previousPendingCount) {
-            break;
-        }
-
-        previousPendingCount = currentPendingCount;
-    }
-
-    // Filter out null or NaN values but retain original input fields
-    Object.keys(calculatedValues).forEach(key => {
-        if (calculatedValues[key] === null || isNaN(calculatedValues[key])) {
-            // Only delete keys that were added during calculation, not the original input keys
-            if (!inputValues.hasOwnProperty(key)) {
-                delete calculatedValues[key];
-            }
-        }
-    });
-
-    return calculatedValues;
-}
-
-function cleanData(value, defaultValue = null) {
-    if (value === undefined || value === null || value === "") return defaultValue;
-    return value.toString().replace(/[\$,%]/g, '');
-}
-
-function getFieldType(fieldKey, schema) {
-    const field = schema?.find(item => item.key === fieldKey);
-    return field ? field.type : null;
-}
-
-function processRow(row, mappedColumns, schema) {
-    const newRow = {};
-    Object.keys(mappedColumns).forEach(dbColumn => {
-        const Header = mappedColumns[dbColumn];
-        if (Header) {
-            if (row.hasOwnProperty(Header)) {
-                const fieldType = getFieldType(dbColumn, schema);
-                let cleanedData = cleanData(row[Header]);
-
-                switch (fieldType) {
-                    case 'integer':
-                        newRow[dbColumn] = parseInt(cleanedData, 10) || 0;
-                        break;
-                    case 'float':
-                        newRow[dbColumn] = parseFloat(cleanedData) || 0.0;
-                        break;
-                    case 'boolean':
-                        newRow[dbColumn] = cleanedData.toLowerCase() === 'true';
-                        break;
-                    default:
-                        newRow[dbColumn] = cleanedData;
-                }
-            } else {
-                console.warn(`Missing Data for Header: ${Header}, intended for DB Column: ${dbColumn}`);
-            }
-        }
-    });
-
-    return newRow;
-}
-
-function processData(Data, mappedColumns, metrics, agencyId, clientId, userId, import_list_inserted, schema) {
-    return Data.map(row => {
-        let newRow = processRow(row, mappedColumns, schema);
-        newRow = calculateMetrics(newRow, metrics);
-        newRow.agency_id = agencyId;
-        newRow.client_id = clientId;
-        newRow.import_list_id = import_list_inserted.insertedId;
-        newRow.user_id = userId;
-        newRow.ad_id = row.ad_id;
-        newRow.post_url = row.post_url;
-        newRow.format = capitalizeFirstChar(row.format).replace("Photo", "Image").replace("Share", "Image");
-        newRow.other_fields = row.other_fields;
-        return newRow;
-    });
-}
-
-const capitalizeFirstChar = str => str ? str[0].toUpperCase() + str.slice(1).toLowerCase() : "";
-
-function NormalizeNumberObjects(dataArray, keysToCheck) {
-    dataArray.forEach(obj => {
-        keysToCheck.forEach(key => {
-            if (obj.hasOwnProperty(key)) {
-                let value = obj[key];
-                if (typeof value === 'string') {
-                    value = parseFloat(value);
-                }
-                obj[key] = value
-            }
-        });
-    });
-    return dataArray;
-}
-
-function detectAndNormalizePercentageInObjects(dataArray, keysToCheck) {
-  // walk every row – decide per value, not per column
-  return dataArray.map(obj => {
-    keysToCheck.forEach(key => {
-      if (!obj.hasOwnProperty(key)) return;
-
-      let v = typeof obj[key] === 'string' ? parseFloat(obj[key]) : obj[key];
-
-      // only divide when the number clearly looks like “30” (meaning 30 %)
-      if (typeof v === 'number' && !isNaN(v) && v > 1) {
-        obj[key] = v / 100;
-      }
-    });
-    return obj;
-  });
-}
-
-
-async function saveFacebookImportStatus(uuid, updateValues) {
-    const collectionName = 'facebook_imports';
-    const filter = {uuid};
-    updateValues.updatedAt = new Date()
-
-    let update = {
-        $set: updateValues
-    };
-    if ('status' in updateValues) {
-        update.$addToSet = {status_history: updateValues.status}
-    }
-    try {
-        const result = await updateOneDocument(collectionName, filter, update);
-        console.log("Facebook import status saved successfully:", result);
-    } catch (error) {
-        console.error("Failed to save Facebook import status:", error);
-    }
-}
-
-async function getFbAdPreview(adId, fbGraphToken) {
-    const url = `${BASE_URL}/${adId}/previews?ad_format=MOBILE_FEED_STANDARD`;
-    const headers = {
-        "Authorization": `Bearer ${fbGraphToken}`,
-        "Content-Type": "application/json",
-    };
-
-    try {
-        const response = await axios.get(url, {headers});
-        const preview = response.data;
-        if (preview && preview.data && preview.data.length > 0) {
-            const body = preview.data[0].body || "";
-            const match = body.match(/src="([^"]+)"/);
-            if (match) {
-                return match[1].replace("amp;", "");
-            }
-        }
-    } catch (error) {
-        console.error("Error fetching FB ad preview:", error);
-    }
-    return null;
-}
-
-async function getSource(url, post = null) {
-    const headers = {
-        "sec-fetch-user": "?1",
-        "sec-ch-ua-mobile": "?0",
-        "sec-fetch-site": "none",
-        "sec-fetch-dest": "document",
-        "sec-fetch-mode": "navigate",
-        "cache-control": "max-age=0",
-        "upgrade-insecure-requests": "1",
-        "accept-language": "en-GB,en;q=0.9",
-        "sec-ch-ua": `"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"`,
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36",
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    };
-
-    try {
-        let response;
-        if (post) {
-            response = await axios.post(url, post, {headers});
-        } else {
-            response = await axios.get(url, {headers});
-        }
-        return response.data;
-    } catch (error) {
-        console.error("Request failed:", error);
-        return null;
-    }
-}
-
-function extractAndDecode(linkUrl) {
-    const prefix = "https://l.facebook.com/l.php?u=";
-    if (linkUrl) {
-        if (linkUrl.startsWith(prefix)) {
-            // Remove the prefix
-            const remaining = linkUrl.slice(prefix.length);
-            // Find the position of the first '&' that indicates the end of the URL parameter
-            const endIndex = remaining.indexOf("&");
-            const encodedUrl = endIndex !== -1 ? remaining.slice(0, endIndex) : remaining;
-            // Decode the URL
-            return decodeURIComponent(encodedUrl);
-        }
-    }
-    return linkUrl;
-}
-
-function removeUTM(url) {
-    try {
-        let urlObj = new URL(url);
-        // Force the protocol to be HTTPS
-        urlObj.protocol = 'https:';
-        let params = new URLSearchParams(urlObj.search);
-        // List of UTM parameters to remove
-        const utmParams = ['ad_id', 'utm_term', 'fb_campaign_id', 'hsa_grp', 'hsa_ad', 'utm_medium',
-            'utm_source', 'utm_placement', 'msclkid', 'campaign_id', 'utm_campaign_group', 'placement',
-            'utm_marpipe_id', 'utm_social-type', 'tw_adid', 'utm_variant', 'utm_fbid', 'utm_campaign_id',
-            'hsa_mt', 'device', 'twclid', 'utm_device', 'gclid', 'utm_ad_id', 'hsa_net', 'hsa_src', 'utm_location',
-            'tw_source', 'utm_adset', 'utm_test', 'campaignid', 'utm_platform', 'hsa_cam', 'fb_ad_id', 'yclid',
-            'utm_camp_id', 'fbclid', 'utm_adset_id', 'utm_campaign', 'fb_action_types', 'utm_referrer',
-            'utm_source_platform', 'utm_content_id', 'fb_action_ids', 'fb_ref', 'fbadid', 'st-t', 'hsa_tgt',
-            'utm_creative_id', 'utm_feed', 'utm_creative', 'hsa_acc', 'dclid', 'utm_ad', 'hsa_kw', 'hsa_ver',
-            'ttclid', 'utm_content_type', 'utm_social', 'utm_creative_format', 'fb_source', 'fb_page_id',
-            'fb_adgroup_id', 'utm_content', 'adgroupid']
-        ;
-
-        utmParams.forEach(param => params.delete(param));
-
-        // Construct the new URL without UTM parameters
-        urlObj.search = params.toString();
-        return urlObj.toString();
-    } catch (error) {
-        return null;
-    }
-}
-
-async function getPropsOfSource(url) {
-    const source = await getSource(url);
-    if (source) {
-        // Use the s flag so that . matches newline characters.
-        const pattern = /"props":\s*(.*?)\s*,\s*"placeholderElement":/s;
-        const match = source.match(pattern);
-        if (match) {
-            const capturedText = match[1];
-            let previewData;
-            try {
-                previewData = JSON.parse(capturedText);
-            } catch (e) {
-                previewData = {};
-            }
-            const product_link =
-                previewData.attachmentsData?.[0]?.attachmentDataList?.[0]?.navigation?.link_url;
-            const message = previewData.messageData?.message;
-            let productLink = extractAndDecode(product_link) || "";
-            return {
-                preview_data: previewData || {},
-                product_link: productLink,
-                product_url: removeUTM(productLink),
-                message: message || "",
-            };
-        }
-    }
-    return {message: "", product_link: "", product_url: null, preview_data: {}};
-}
-
-async function updateMessagesAndLinks(uuid, clientId) {
-    // Retrieve the client document using the provided clientId.
-    const client = await findOneDocument("clients", {_id: clientId});
-    const accessToken = client.fb_config?.access_token || {};
-
-    // Find assets where ad_id exists and both message and product_link in fb_data do not exist.
-    const assets = await findDocuments(
-        "assets",
-        {
-            client_id: clientId,
-            ad_id: {$exists: true},
-            "meta_data.fb_data.message": {$exists: false},
-            "meta_data.fb_data.product_link": {$exists: false},
-        },
-        {_id: 1, ad_id: 1}
-    );
-    let startProgress = 20;
-    const endProgress = 50;
-    const totalTasks = assets.length;
-    const progressIncrement = (endProgress - startProgress) / totalTasks;
-    let currentProgress = startProgress;
-    for (const asset of assets) {
-        // Retrieve the Facebook ad preview URL using the asset's ad_id.
-        const url = await getFbAdPreview(asset.ad_id, accessToken);
-        const props = await getPropsOfSource(url);
-
-        // Update the asset document with the fetched message, product_link, and preview_data.
-        await updateOneDocument(
-            "assets",
-            {_id: new ObjectId(asset._id)},
-            {
-                $set: {
-                    "meta_data.fb_data": {
-                        message: props.message,
-                        product_link: props.product_link,
-                        product_url: props.product_url,
-                        preview_data: props.preview_data,
-                    },
-                },
-            }
-        );
-        currentProgress += progressIncrement;
-        await saveFacebookImportStatus(uuid, {
-            percentage: currentProgress
-        })
-    }
-}
-
-async function generateProduct(uuid, clientId, agencyId) {
-    let default_tags_categories = await findDocuments("tags_categories", {client_id: clientId})
-    if (default_tags_categories.length === 0) {
-        default_tags_categories = await findDocuments(
-            "tags_categories",
-            {client_id: "global", agency_id: "global"},
-            {_id: 0, "client_id": clientId, "agency_id": agencyId, category: 1, description: 1}
-        );
-        await insertMany("tags_categories", default_tags_categories);
-    }
-    // let default_tags = await findDocuments("tags",{is_default:true,client_id:clientId})
-    // if (default_tags.length === 0 ) {
-    //     default_tags = await findDocuments("tags",{is_default:true,client_id:"global", agency_id : "global"},{_id:0});
-    //     default_tags.forEach(tag => {
-    //         tag.client_id = clientId;
-    //         tag.agency_id = agencyId
-    //     });
-    //     const inserted_tags = await insertMany("tags",default_tags);
-    //
-    // }
-    const assets_links = await aggregateDocuments("assets", [
-        {
-            $match: {
-                "client_id": clientId,
-                // "meta_tags.offer": {$exists: false},
-                "meta_data.fb_data.product_url": {
-                    $exists: true,
-                    // "$ne": null,
-                    "$ne": ""
-                },
-            }
-        },
-        {
-            "$group": {
-                "_id": "$meta_data.fb_data.product_url",
-                "count": {"$sum": 1},
-            }
-        }, {$sort: {count: -1}}, {
-            "$project": {
-                url: "$_id", count: "$count", _id: 0,
-//   asset_ids:1
-
-            }
-        }
-    ])
-    // Your prompt instructing the extraction details
-    // console.log(assets_links,"<<<<<assets_links");
-    const prompt_setting = await findOneDocument("settings", {"key": "extractProductPrompt"})
-    const prompt = prompt_setting.promptTemplate;
-
-    const tags = await aggregateDocuments("tags", [
-  { $match: { client_id: clientId }},
-
-  // group all tag/desc by category
-  {
-    $group: {
-      _id: "$category",
-      pairs: {
-        $push: {
-          k: "$tag",
-          v: { $ifNull: ["$description", ""] }
-        }
-      }
-    }
-  },
-
-  // ensure both k and v exist and k is not null/empty
-  {
-    $project: {
-      _id: 0,
-      category: "$_id",
-      tags: {
-        $arrayToObject: {
-          $map: {
-            input: {
-              $filter: {
-                input: "$pairs",
-                as: "p",
-                cond: {
-                  $and: [
-                    { $ne: ["$$p.k", null] },
-                    { $ne: ["$$p.k", ""] }
-                  ]
-                }
-              }
-            },
-            as: "p",
-            in: { k: "$$p.k", v: "$$p.v" }
-          }
-        }
-      }
-    }
-  },
-
-  // now collapse into a single document { categoryName: {tag:desc,...}, ... }
-  {
-    $group: {
-      _id: null,
-      categories: {
-        $push: {
-          k: "$category",
-          v: "$tags"
-        }
-      }
-    }
-  },
-
-  // filter out empty/null category keys before arrayToObject
-  {
-    $project: {
-      _id: 0,
-      categories: {
-        $filter: {
-          input: "$categories",
-          as: "c",
-          cond: {
-            $and: [
-              { $ne: ["$$c.k", null] },
-              { $ne: ["$$c.k", ""] }
-            ]
-          }
-        }
-      }
-    }
-  },
-
-  { $replaceRoot: { newRoot: { $arrayToObject: "$categories" } } }
-])
- if (tags.length > 1) {
-        return
-    }
-    const categories = await aggregateDocuments("tags_categories", [
-  { $match: { client_id: clientId } },
-  { $sort: { _id: 1 } },
-
-  {
-    $group: {
-      _id: null,
-      categoryDescriptions: {
-        $push: {
-          k: "$category",
-          v: { $ifNull: ["$description", ""] }
-        }
-      }
-    }
-  },
-
-  // filter out items without valid k before arrayToObject
-  {
-    $project: {
-      _id: 0,
-      categoryDescriptions: {
-        $filter: {
-          input: "$categoryDescriptions",
-          as: "kv",
-          cond: {
-            $and: [
-              { $ne: ["$$kv.k", null] },
-              { $ne: ["$$kv.k", ""] }
-            ]
-          }
-        }
-      }
-    }
-  },
-
-  { $replaceRoot: { newRoot: { $arrayToObject: "$categoryDescriptions" } } }
-])
-    const categories_val = categories[0];
-    let tag_example = "{"
-    Object.keys(categories_val).forEach((k) => {
-        tag_example += `${k}:[{
-            tag:  "${k}_tag_value1",
-            tag_description: "${k}_tag_value1_description"
-        },
-        .
-        .
-        .
-        ],`;
-    });
-    const joinedCategories = Object.keys(categories_val).join('|');
-
-    // Function to split an array into chunks of a specified size
-    function chunkArray(array, size) {
-        const chunks = [];
-        for (let i = 0; i < array.length; i += size) {
-            chunks.push(array.slice(i, i + size));
-        }
-        return chunks;
-    }
-
-    // Function to process one chunk of URLs
-    async function extractProductDetailsForChunk(chunk) {
-        const prompt_code_part = `You are a Creative Director. Your task is to analyze the product information from the provided links and return detailed products information in a structured JSON format. Follow these instructions precisely:
-    Visit and carefully review the content of the provided link.
-    Extract the product name and a concise yet detailed product description.
-    Identify relevant tags for the product according to the specified categories below.
-
-tags categories:
-    ${JSON.stringify(categories_val, null, 1)}
-
-urls:
-    ${JSON.stringify(chunk.map(item => item.url).filter(Boolean), null, 1)}
-    
-description (briefly explain the meaning or context of the tag)
-${prompt}
-Important rules to follow:
-    Any tag created, including within categories ${joinedCategories}.
-    Ensure accuracy, conciseness, and relevance in each tag and description.
-    Generate tags using no more than three words unless explicitly permitted by the tag category description.
-
-Your response must follow this exact JSON format: 
-    [{
-        "product_name": "Product Name Here (The name of the product)",
-        "product_description": "Brief and clear product description goes here (A clear and concise one-line description that accurately defines the product's purpose or function.)",
-        "landing_url:v"Product URL"
-        "tags": ${tag_example},
-    },
-    .
-    .
-    .
-    ]
-Just return json and nothing else.
-`;
-        console.log(prompt_code_part, "<<<<<<<<prompt_code_part")
-        const data = {
-            model: prompt_setting.model,
-            messages: [
-                {role: "system", content: "You are a helpful assistant."},
-                {
-                    role: "user",
-                    content: prompt_code_part
-                }
-            ],
-            temperature: prompt_setting.temperature,
-        };
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            data,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                }
-            }
-        );
-        // The API should return the structured JSON as text.
-
-        let output = response.data.choices[0].message.content;
-        // console.log(data,"<<<Data");
-        // console.log(output,"<<<output");
-        // console.log(output,"<<<<<<<<<<<<<<<output");
-        output = output.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
-
-        // Remove trailing commas before closing braces or brackets and remove newlines
-        const contentFixed = output.replace(/,\s*([\}\]])/g, '$1').replace(/\n/g, '');
-        console.log(contentFixed, "<<<contentFixed")
-        // Assuming the output is valid JSON
-        console.log(`result: ${contentFixed}`);
-        return JSON.parse(contentFixed);
-
-    }
-
-    // Main function to process all chunks and accumulate the results
-    async function extractAllProductDetails() {
-        const chunkSize = 50;
-        const chunks = chunkArray(assets_links, chunkSize);
-        const allResults = [];
-        let startProgress = 50;
-        const endProgress = 60;
-        const totalTasks = chunks.length;
-        const progressIncrement = (endProgress - startProgress) / totalTasks;
-        let currentProgress = startProgress;
-
-        for (let i = 0; i < chunks.length; i++) {
-            console.log(`Processing chunk ${i + 1} of ${chunks.length}`);
-            const result = await extractProductDetailsForChunk(chunks[i]);
-
-            // Merge the current chunk's result into the overall array
-            allResults.push(...result);
-            currentProgress += progressIncrement;
-            await saveFacebookImportStatus(uuid, {
-                percentage: currentProgress
-            })
-
-        }
-
-        return allResults;
-    }
-
-    // Execute and print the final results
-    const funnels = await extractAllProductDetails()
-    for (let i = 0; i < funnels.length; i++) {
-        const funnel = funnels[i]
-        // for (let i = 0; i < funnel.tags.length; i++) {
-        {
-            for (const [key, value] of Object.entries(funnel.tags)) {
-                // Wait for the asynchronous operation to complete before continuing
-                for (let i = 0; i < value.length; i++) {
-                    const update_result = await updateOneDocument("tags", {
-                        "tag": value[i].tag,
-                        category: key,
-                        client_id: clientId,
-                        agency_id: agencyId
-                    }, {
-                        $set: {
-                            description: value[i].tag_description,
-                            updated_by: "AI-Product",
-                            updated_at: new Date()
-                        }, $setOnInsert: {created_at: new Date(), created_by: "AI-Product"}
-                    }, {upsert: true})
-                }
-            }
-        }
-        // }
-    }
-    let jackpot = await aggregateDocuments("tags", [
-  { $match: { client_id: clientId, category: { $type: "string", $ne: "" } } },
-
-  {
-    $group: {
-      _id: "$category",
-      ids: { $push: "$_id" }
-    }
-  },
-
-  { $project: { _id: 0, k: "$_id", v: "$ids" } },
-
-  {
-    $group: {
-      _id: null,
-      categories: { $push: { k: "$k", v: "$v" } }
-    }
-  },
-
-  {
-    $project: {
-      _id: 0,
-      categories: {
-        $filter: {
-          input: "$categories",
-          as: "c",
-          cond: {
-            $and: [
-              { $ne: ["$$c.k", null] },
-              { $ne: ["$$c.k", ""] }
-            ]
-          }
-        }
-      }
-    }
-  },
-
-  { $replaceRoot: { newRoot: { $arrayToObject: "$categories" } } }
-]);
-    let startProgress = 50;
-    const endProgress = 60;
-    const totalTasks = funnels.length;
-    const progressIncrement = (endProgress - startProgress) / totalTasks;
-    let currentProgress = startProgress;
-    for (let i = 0; i < funnels.length; i++) {
-        const funnel = funnels[i]
-        const funnelName = funnel.product_name.toLowerCase();
-        await updateOneDocument("products",
-            {
-                funnel_name: funnelName,
-                client_id: clientId,
-                agency_id: agencyId,
-
-            }, {
-                $setOnInsert: {
-                    created_at: new Date(),
-                    funnel_form_data: {
-                        landing_url: funnel.landing_url,
-                        funnel_name: funnelName,
-                        funnel_description: funnel.product_description
-                    },
-                    jackpot: jackpot[0] || {},
-                    landing_url: funnel.landing_url,
-                    funnel_description: funnel.funnel_description
-                }
-            }, {upsert: true});
-        await updateOneDocument("tags", {
-            "tag": funnelName,
-            category: "offer",
-            client_id: clientId,
-            agency_id: agencyId
-        }, {
-            $set: {
-                description: funnel.funnel_description,
-            }, $setOnInsert: {created_at: new Date(), created_by: "AI"}
-        }, {upsert: true})
-        await updateManyDocuments("assets", {
-            "client_id": clientId,
-            "meta_tags.offer": {$exists: false},
-            "meta_data.fb_data.product_url": funnel.landing_url
-        }, {"$set": {"meta_tags.offer": funnelName}})
-        currentProgress += progressIncrement;
-        await saveFacebookImportStatus(uuid, {
-            percentage: currentProgress
-        })
-
-    }
-
-}
+/* generateProduct moved to src/services/enrichment/product.service.js */
 
 function mergeArraysByAdName(arr1, arr2) {
     const lookup = arr2.reduce((acc, item) => {
@@ -2225,34 +752,7 @@ function mergeAggregate(obj1, obj2) {
 }
 
 
-async function tagging(importListId, clientId, ai) {
-    const assets_ids_tagging = (await findDocuments(
-        "metrics",
-        {
-            client_id: clientId,
-            import_list_id: importListId,
-        },
-        {asset_id: 1, _id: 0}
-    )).map((doc) => doc.asset_id.toString());
-    const payload = {
-        ai: ai,
-        asset_ids: assets_ids_tagging,
-        imported_list_id: importListId,
-        force_update_tags: false,
-        force_update_description: false,
-        force_update_transcription: false
-    }
-    return await axios.post(
-        `${fluxAPIBaseUrl}/tagging-task/bulk_tag`,
-        payload,
-        {
-            headers: {
-                'x-api-key': fluxAPIkey,
-                'Content-Type': 'application/json',
-            }
-        }
-    )
-}
+// tagging moved to src/services/enrichment/tagging.service.js
 
 async function mainTask(params) {
     let {
@@ -2272,7 +772,7 @@ async function mainTask(params) {
     agencyId = new ObjectId(agencyId);
     clientId = new ObjectId(clientId);
     userId = new ObjectId(userId);
-    let defined_schema = await findOneDocument("defined_schemas", {
+    let defined_schema = await findOneDocumentRepo("defined_schemas", {
         client_id: clientId, "schema": {"$exists": true, "$ne": []},
     })
     let schema = []
@@ -2280,261 +780,7 @@ async function mainTask(params) {
         schema = defined_schema.schema;
     } else {
         if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
-            schema = default_schema.concat([{
-                "key": "cpgya",
-                "is_default": true,
-                "title": "CPGYA",
-                "description": "Cost per GYA",
-                "required": false,
-                "type": "float",
-                "similar_dictionary": [
-                    "Cost per Gya"
-                ],
-                "order_preference": "acs",
-                "format": "currency",
-                "formula": "spend / (green_appts + yellow_appts)"
-            },
-                {
-                    "key": "l2a",
-                    "is_default": true,
-                    "title": "L2A",
-                    "description": "Lead to Appointment",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Lead to Appt",
-                        "L2A"
-                    ],
-                    "order_preference": "decs",
-                    "format": "percent",
-                    "formula": "appts / lead"
-                },
-                {
-                    "key": "l2s",
-                    "is_default": true,
-                    "title": "L2S",
-                    "description": "Lead to Sale",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Lead to Sale",
-                        "L2S"
-                    ],
-                    "order_preference": "decs",
-                    "format": "percent",
-                    "formula": "sold / lead"
-                },
-                {
-                    "key": "l2c",
-                    "is_default": true,
-                    "title": "L2C",
-                    "description": "Lead to Conversion",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Lead to Conversion"
-                    ],
-                    "order_preference": "decs",
-                    "format": "percent",
-                    "formula": "show / lead"
-                },
-                {
-                    "key": "s2s",
-                    "is_default": true,
-                    "title": "S2S",
-                    "description": "Stage 2 to Sale conversion",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "S2S Conversion"
-                    ],
-                    "order_preference": "decs",
-                    "format": "percent",
-                    "formula": "sold / show"
-                },
-                {
-                    "key": "s2a",
-                    "is_default": true,
-                    "title": "S2A",
-                    "description": "Stage 2 to Appointment conversion",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "S2A Conversion"
-                    ],
-                    "order_preference": "decs",
-                    "format": "percent",
-                    "formula": "show / appts"
-                },
-                {
-                    "key": "gya",
-                    "is_default": true,
-                    "title": "GYA",
-                    "description": "GYA metric",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "GYA"
-                    ],
-                    "order_preference": "decs",
-                    "format": "percent",
-                    "formula": "(green_appts + yellow_appts) / appts"
-                },
-                {
-                    "key": "gyv",
-                    "is_default": true,
-                    "title": "GYV",
-                    "description": "GYV metric",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "GYV"
-                    ],
-                    "order_preference": "acs",
-                    "format": "number",
-                    "formula": "green_appts + yellow_appts"
-                },
-                {
-                    "key": "cpsold",
-                    "is_default": true,
-                    "title": "CPSOLD",
-                    "description": "Cost per sold",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Cost per Sold"
-                    ],
-                    "order_preference": "acs",
-                    "format": "currency",
-                    "formula": "spend / sold"
-                },
-                {
-                    "key": "cpshow",
-                    "is_default": true,
-                    "title": "CPSHOW",
-                    "description": "Cost per show",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Cost per Show"
-                    ],
-                    "order_preference": "acs",
-                    "format": "currency",
-                    "formula": "spend / show"
-                },
-                {
-                    "key": "cpappts",
-                    "is_default": true,
-                    "title": "CPAPPTS",
-                    "description": "Cost per appointment",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Cost per Appointment"
-                    ],
-                    "order_preference": "acs",
-                    "format": "currency",
-                    "formula": "spend / appts"
-                },
-                {
-                    "key": "lead_cvr",
-                    "is_default": true,
-                    "title": "Lead CVR",
-                    "description": "Lead conversion rate",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Lead Conversion Rate"
-                    ],
-                    "order_preference": "decs",
-                    "format": "percent",
-                    "formula": "lead / link_clicks"
-                },
-                {
-                    "key": "sold",
-                    "is_default": true,
-                    "title": "SOLD",
-                    "description": "Number of final sales",
-                    "required": false,
-                    "type": "integer",
-                    "similar_dictionary": [
-                        "Sales",
-                        "Sold"
-                    ],
-                    "order_preference": "acs",
-                    "format": "number",
-                    "formula": "N/A"
-                },
-                {
-                    "key": "show",
-                    "is_default": true,
-                    "title": "SHOW",
-                    "description": "Customers showing up at the doctor's office",
-                    "required": false,
-                    "type": "integer",
-                    "similar_dictionary": [
-                        "Show"
-                    ],
-                    "order_preference": "acs",
-                    "format": "number",
-                    "formula": "N/A"
-                },
-                {
-                    "key": "appts",
-                    "is_default": true,
-                    "title": "APPTS",
-                    "description": "Appointments",
-                    "required": false,
-                    "type": "integer",
-                    "similar_dictionary": [
-                        "Appointments"
-                    ],
-                    "order_preference": "acs",
-                    "format": "number",
-                    "formula": "N/A"
-                },
-                {
-                    "key": "green_appts",
-                    "is_default": true,
-                    "title": "Green Appointments",
-                    "description": "Green Appointments",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Green Appointments"
-                    ],
-                    "order_preference": "decs",
-                    "format": "number",
-                    "formula": "N/A"
-                },
-                {
-                    "key": "yellow_appts",
-                    "is_default": true,
-                    "title": "Yellow Appointments",
-                    "description": "Yellow Appointments",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Yellow Appointments"
-                    ],
-                    "order_preference": "decs",
-                    "format": "number",
-                    "formula": "N/A"
-                },
-                {
-                    "key": "red_appts",
-                    "is_default": true,
-                    "title": "Red Appointments",
-                    "description": "Red Appointments",
-                    "required": false,
-                    "type": "float",
-                    "similar_dictionary": [
-                        "Red Appointments"
-                    ],
-                    "order_preference": "acs",
-                    "format": "number",
-                    "formula": "N/A"
-                }])
+            schema = buildClientSchema(default_schema, FBadAccountId);
         } else {
             schema = default_schema;
         }
@@ -2566,7 +812,7 @@ async function mainTask(params) {
         // })
         // await generateProduct(uuid, clientId, agencyId)
         // return
-        await saveFacebookImportStatus(uuid, {
+        await saveFacebookImportStatusSvc(uuid, {
             start_date,
             end_date,
             agency_id: agencyId,
@@ -2578,7 +824,7 @@ async function mainTask(params) {
             percentage: -1,
             createdAt: new Date()
         })
-        const metrics = await findDocuments("import_schema", {
+        const metrics = await findDocumentsRepo("import_schema", {
             "type": {"$in": ["float", "integer"]},
             "formula": {
                 "$exists": true,
@@ -2592,7 +838,7 @@ async function mainTask(params) {
         // }, {
         //     "$set": {"updatedAt": new Date()}
         // }, {upsert: true})).schema || [];
-        const MetricsIDs = (await aggregateDocuments("metrics", [
+        const MetricsIDs = (await aggregateDocumentsRepo("metrics", [
             {
                 $match: {
                     Ad_Name: {$exists: true, $ne: null},
@@ -2618,31 +864,31 @@ async function mainTask(params) {
             }
         ]))[0];
         console.log("Getting ads ... ")
-        let results = await getAdsInsights(FBadAccountId, fbAccessToken, start_date, end_date, uuid)
-        await insertMany("fb_insights", results.map(item => ({
+        let results = await getAdsInsightsSvc(FBadAccountId, fbAccessToken, start_date, end_date, uuid, FB_FIELDS)
+        await insertManyRepo("fb_insights", results.map(item => ({
             ...item,
             uuid
         })))
         if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
             results = aggregateByCode(results);
-            const athena_result = await runAthenaQuery(start_date, end_date);
-            await insertMany("athena_result", athena_result.map(item => ({
+            const athena_result = await runAthenaQuerySvc({ start_date, end_date });
+            await insertManyRepo("athena_result", athena_result.map(item => ({
                 ...item,
                 uuid
             })))
             results = mergeArraysByAdName(results, athena_result)
-            await insertMany("merged_results", results.map(item => ({
+            await insertManyRepo("merged_results", results.map(item => ({
                 ...item,
                 uuid
             })))
         }
-        const ads = convertToObject(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts","cpgya","s2a","gya","gyv","cpappts"])
+        const ads = convertToObjectSvc(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts","cpgya","s2a","gya","gyv","cpappts"])
         console.log('SAMPLE', ads[0].Ad_Name, ads[0].video_views_15s, ads[0].impressions, ads[0].hold);
-        const exist_fields = findNonEmptyKeys(ads)
+        const exist_fields = findNonEmptyKeysSvc(ads)
         const Headers = exist_fields.filter(item => !["post_url", "other_fields", "ad_id",].includes(item));
-        const tableColumns = transformObjects(schema);
+        const tableColumns = transformObjectsSvc(schema);
         const result = Headers.map(item => {
-            const {key, similarity} = findMostSimilarKey(item, tableColumns);
+            const {key, similarity} = findMostSimilarKeySvc(item, tableColumns);
             return {
                 head: item,
                 similar_obj: similarity > 0.75 ? tableColumns.find(obj => Object.keys(obj)[0] === key)[key] : "Exclude"
@@ -2654,10 +900,10 @@ async function mainTask(params) {
                 formData[mapping.similar_obj.key] = mapping.head;
             }
         });
-        const last_imported_list = (await findDocuments("imported_lists", {
+        const last_imported_list = (await findDocumentsRepo("imported_lists", {
             client_id: clientId
         }, {}, {"createdAt": -1}))?.[0]
-        const last_sub_reports = last_imported_list ? await findDocuments("sub_reports", {
+        const last_sub_reports = last_imported_list ? await findDocumentsRepo("sub_reports", {
             import_list_id: last_imported_list._id
         }, {html_note: 0}) : []
         const importListDocument = {
@@ -2683,11 +929,11 @@ async function mainTask(params) {
                 }, {}),
             schema: [...new Set(schema)],
         };
-        const import_list_inserted = await insertOneDocument("imported_lists", importListDocument);
-        await saveFacebookImportStatus(uuid, {
+        const import_list_inserted = await insertOneDocumentRepo("imported_lists", importListDocument);
+        await saveFacebookImportStatusSvc(uuid, {
             import_list_id: import_list_inserted.insertedId,
         })
-        let newDataArray = processData(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted, schema);
+        let newDataArray = processDataSvc(ads, formData, metrics, agencyId, clientId, userId, import_list_inserted, schema, calculateMetricsSvc);
         // ★ restore the correct `hold` that processData zeroed out ★
 newDataArray.forEach((row, idx) => {
   row.hold = ads[idx].hold;
@@ -2695,17 +941,17 @@ newDataArray.forEach((row, idx) => {
     console.log("🐛 after processData, hold =", newDataArray[0].hold);
 
         
-        newDataArray = fillMissingFields(newDataArray, schema)
+        newDataArray = fillMissingFieldsSvc(newDataArray, schema)
 
             console.log("🐛 after fillMissingFields, hold =", newDataArray[0].hold);
 
-        const PercentkeysToCheck = getPercentFields(metrics);
-        const keysToCheck = await findDocuments("import_schema", {type: {$in: ["float", "integer"]}}, {key: 1, _id: 0});
-        let res = NormalizeNumberObjects(newDataArray, keysToCheck);
+        const PercentkeysToCheck = getPercentFieldsSvc(metrics);
+        const keysToCheck = await findDocumentsRepo("import_schema", {type: {$in: ["float", "integer"]}}, {key: 1, _id: 0});
+        let res = NormalizeNumberObjectsSvc(newDataArray, keysToCheck);
             console.log("🐛 after NormalizeNumberObjects, hold =", res[0].hold);
 
         console.log("Validating Records ... ")
-        let validatedRecords = detectAndNormalizePercentageInObjects(res, PercentkeysToCheck)
+        let validatedRecords = detectAndNormalizePercentageInObjectsSvc(res, PercentkeysToCheck)
             console.log("🐛 after detectAndNormalize, hold =", validatedRecords[0].hold);
 
         console.log(
@@ -2718,7 +964,7 @@ newDataArray.forEach((row, idx) => {
         );
 
         
-        const AssetsIds = await aggregateDocuments("assets", [
+        const AssetsIds = await aggregateDocumentsRepo("assets", [
             {
                 $match: {
                     client_id: clientId,
@@ -2779,10 +1025,10 @@ newDataArray.forEach((row, idx) => {
                 }
                 if (product_link) {
                     set_dict["meta_data.fb_data.product_link"] = product_link;
-                    set_dict["meta_data.fb_data.product_url"] = removeUTM(product_link);
+                    set_dict["meta_data.fb_data.product_url"] = removeUTMSvc(product_link);
                 }
                 // remove this part of code when all asset updated
-                await updateOneDocument("assets", {_id: new ObjectId(entry.asset_id)}, {$set: set_dict}
+                await updateOneDocumentRepo("assets", {_id: new ObjectId(entry.asset_id)}, {$set: set_dict}
                 )
             } else {
                 try {
@@ -2793,9 +1039,9 @@ newDataArray.forEach((row, idx) => {
                     }
                     if (product_link) {
                         fb_data.product_link = product_link;
-                        fb_data.product_url = removeUTM(product_link);
+                        fb_data.product_url = removeUTMSvc(product_link);
                     }
-                    const new_asset = await insertOneDocument("assets", {
+                    const new_asset = await insertOneDocumentRepo("assets", {
                         agency_id: agencyId,
                         client_id: clientId,
                         import_list_id: import_list_inserted.insertedId,
@@ -2815,7 +1061,7 @@ newDataArray.forEach((row, idx) => {
             entry.createdAt = new Date();
         }
         if (!validatedRecords || validatedRecords.length === 0) {
-            await saveFacebookImportStatus(uuid, {
+            await saveFacebookImportStatusSvc(uuid, {
                 status: "is_empty",
                 percentage: 0
             })
@@ -2825,9 +1071,9 @@ newDataArray.forEach((row, idx) => {
             }
         }
         console.log("Inserting Metrics ... ")
-        const insertedItems = await insertMany("metrics", validatedRecords)
+        const insertedItems = await insertManyRepo("metrics", validatedRecords)
         console.log("Creating report ... ")
-        const report_data = await insertOneDocument("reports_data", {
+        const report_data = await insertOneDocumentRepo("reports_data", {
                 "import_list_id": import_list_inserted.insertedId,
                 "client_id": clientId,
                 "agency_id": agencyId,
@@ -2838,8 +1084,8 @@ newDataArray.forEach((row, idx) => {
         )
         if (last_sub_reports && last_sub_reports.length > 0) {
             for (const last_sub_report of last_sub_reports) {
-                await insertOneDocument("sub_reports", {
-                        ...((({_id, ...rest}) => rest)(last_sub_report)),
+                await insertOneDocumentRepo("sub_reports", {
+                        ...(({_id, ...rest}) => rest)(last_sub_report),
                         "import_list_id": import_list_inserted.insertedId,
                         "client_id": clientId,
                         "agency_id": agencyId,
@@ -2849,7 +1095,7 @@ newDataArray.forEach((row, idx) => {
                 );
             }
         } else {
-            await insertOneDocument("sub_reports", {
+            await insertOneDocumentRepo("sub_reports", {
                 import_list_id: import_list_inserted.insertedId,
                 client_id: clientId,
                 agency_id: agencyId,
@@ -2869,14 +1115,14 @@ newDataArray.forEach((row, idx) => {
                 createdAt: new Date()
             })
         }
-        await saveFacebookImportStatus(uuid, {
+        await saveFacebookImportStatusSvc(uuid, {
             status: "Analyzing imported data",
             percentage: 20
         })
-        await updateMessagesAndLinks(uuid, clientId)
-        await generateProduct(uuid, clientId, agencyId)
+        await updateMessagesAndLinksSvc(uuid, clientId)
+        await generateProductSvc(uuid, clientId, agencyId)
         if (ai) {
-            const response = await tagging(import_list_inserted.insertedId, clientId, ai)
+            const response = await taggingSvc(import_list_inserted.insertedId, clientId, ai)
         } else {
             await saveFacebookImportStatus(uuid, {
                 status: "success",
@@ -2894,24 +1140,7 @@ newDataArray.forEach((row, idx) => {
     }
 }
 
-// Endpoint to trigger the task
-app.post('/run-task', async (req, res) => {
-    const auth = req.get('authorization') || '';
-    if (!auth) return res.status(401).json({ error: 'missing Authorization' });
-
-    const params = req.body;
-
-    // Validate incoming parameters
-    if (!params.start_date || !params.end_date || !params.fbAccessToken || !params.FBadAccountId) {
-        return res.status(400).send({success: false, message: 'Missing required parameters'});
-    }
-
-    // Acknowledge request
-    res.status(200).send({success: true, message: 'Task has been queued for processing'});
-
-    // Run the task in the background
-    runInBackground(mainTask, params);
-});
+// /run-task route moved to src/controllers/task.controller.js
 
 
 async function adLibraryTask(params) {
@@ -2947,8 +1176,8 @@ async function adLibraryTask(params) {
             createdAt: new Date()
         })
         console.log("Getting ads ... ")
-        let results = await getAdsLibrary(FBadAccountId, fbAccessToken, start_date, end_date, uuid, search_page_ids, max_count)
-        return await insertMany("fb_ad_libraries", results.map(item => ({
+        let results = await getAdsLibrarySvc(FBadAccountId, fbAccessToken, start_date, end_date, uuid, search_page_ids, max_count)
+        return await insertManyRepo("fb_ad_libraries", results.map(item => ({
             ...item,
             uuid
         })))
@@ -2963,36 +1192,13 @@ async function adLibraryTask(params) {
     }
 }
 
-// Endpoint to trigger the task
-app.post('/run-ad-library', authenticate, (req, res) => {
-    const params = req.body;
+// /run-ad-library route moved to src/controllers/adLibrary.controller.js
 
-    // Validate incoming parameters
-    if (!params.start_date || !params.end_date || !params.fbAccessToken || !params.FBadAccountId) {
-        return res.status(400).send({success: false, message: 'Missing required parameters'});
-    }
+// Express error handler is configured in src/app.js
 
-    // Acknowledge request
-    res.status(200).send({success: true, message: 'Task has been queued for processing'});
-
-    // Run the task in the background
-    runInBackground(adLibraryTask, params);
-});
-
-Sentry.setupExpressErrorHandler(app);
-
-// Optional fallthrough error handler
-app.use(function onError(err, req, res, next) {
-    // The error id is attached to `res.sentry` to be returned
-    // and optionally displayed to the user for support.
-    res.statusCode = 500;
-    res.end(res.sentry + "\n");
-});
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`API listening on ${PORT}`);
-});
+// Export task functions for use in modular server/controllers
+export { mainTask };
+export { adLibraryTask };
 
 // console.log(await mainTask(
 //     {
