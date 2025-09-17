@@ -49,6 +49,8 @@ export const FIELDS = [
   "cost_per_unique_inline_link_click",
   "cost_per_unique_outbound_click",
   "cpc","cpm","cpp","created_time","ctr","date_start","date_stop",
+  // critical base metrics for reporting
+  "impressions","reach","spend","inline_link_clicks",
   // ... keep the rest in the original list, or migrate fully in follow-up step
 ];
 
