@@ -858,6 +858,30 @@ async function mainTask(params) {
                 }
             },
             {
+                $project: {
+                    keyValues: {
+                        $map: {
+                            input: {
+                                $filter: {
+                                    input: "$keyValues",
+                                    as: "kv",
+                                    cond: {
+                                        $and: [
+                                            { $ne: ["$$kv.k", null] },
+                                            { $ne: ["$$kv.k", ""] },
+                                            { $ne: ["$$kv.v", null] },
+                                            { $ne: ["$$kv.v", ""] }
+                                        ]
+                                    }
+                                }
+                            },
+                            as: "kv",
+                            in: { k: "$$kv.k", v: "$$kv.v" }
+                        }
+                    }
+                }
+            },
+            {
                 $replaceRoot: {
                     newRoot: {$arrayToObject: "$keyValues"}
                 }
@@ -981,6 +1005,30 @@ newDataArray.forEach((row, idx) => {
                 $group: {
                     _id: null,
                     keyValues: {$push: "$keyValue"}
+                }
+            },
+            {
+                $project: {
+                    keyValues: {
+                        $map: {
+                            input: {
+                                $filter: {
+                                    input: "$keyValues",
+                                    as: "kv",
+                                    cond: {
+                                        $and: [
+                                            { $ne: ["$$kv.k", null] },
+                                            { $ne: ["$$kv.k", ""] },
+                                            { $ne: ["$$kv.v", null] },
+                                            { $ne: ["$$kv.v", ""] }
+                                        ]
+                                    }
+                                }
+                            },
+                            as: "kv",
+                            in: { k: "$$kv.k", v: "$$kv.v" }
+                        }
+                    }
                 }
             },
             {
