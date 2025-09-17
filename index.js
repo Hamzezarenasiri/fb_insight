@@ -8,7 +8,7 @@ import { sendHttpRequest as sendHttpRequestSvc } from './src/utils/http.js';
 import { getAdsInsights as getAdsInsightsSvc } from './src/services/facebook/facebook.service.js';
 import { getAdsLibrary as getAdsLibrarySvc } from './src/services/facebook/adLibrary.service.js';
 import { FIELDS as FB_FIELDS } from './src/services/facebook/fields.js';
-import { default_schema as DEFAULT_SCHEMA, buildClientSchema } from './src/services/reporting/schema.defaults.js';
+import { default_schema as DEFAULT_FB_SCHEMA, buildClientSchema } from './src/services/reporting/schema.defaults.js';
 import { calculateMetrics as calculateMetricsSvc, fillMissingFields as fillMissingFieldsSvc } from './src/services/reporting/metrics.service.js';
 import { transformObjects as transformObjectsSvc, findMostSimilarKey as findMostSimilarKeySvc, getPercentFields as getPercentFieldsSvc } from './src/services/reporting/mapping.service.js';
 import { processData as processDataSvc, NormalizeNumberObjects as NormalizeNumberObjectsSvc, detectAndNormalizePercentageInObjects as detectAndNormalizePercentageInObjectsSvc } from './src/services/reporting/process.service.js';
@@ -127,8 +127,8 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY
     "website_ctr",
     "website_purchase_roas",
 ].join(","); */
-// duplicate import removed; using DEFAULT_SCHEMA import at top
-const default_schema = DEFAULT_SCHEMA; /* moved to schema.defaults.js */
+// use schema from schema.defaults.js
+const default_schema = DEFAULT_FB_SCHEMA; /* moved to schema.defaults.js */
 /*
     {
         "key": "Ad_Name",
