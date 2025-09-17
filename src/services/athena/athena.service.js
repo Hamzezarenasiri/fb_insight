@@ -1,5 +1,6 @@
 import { AthenaClient, StartQueryExecutionCommand, GetQueryExecutionCommand, GetQueryResultsCommand } from '@aws-sdk/client-athena';
 import { config } from '../../config/env.js';
+import { logProgress, startTimer, elapsedMs } from '../../utils/logger.js';
 
 const athena = new AthenaClient({
   region: config.aws.region,
@@ -28,6 +29,7 @@ function transformAthenaResult(results) {
 }
 
 export async function runAthenaQuery({ start_date, end_date, sql }) {
+  const t0 = startTimer();
   const QueryString = sql || `
         WITH last_file AS (SELECT "$path" AS latest_file
                            FROM sonobellodata
@@ -56,16 +58,20 @@ export async function runAthenaQuery({ start_date, end_date, sql }) {
     ResultConfiguration: { OutputLocation: config.aws.athenaOutput },
   };
 
+  logProgress('athena.query.start', { has_custom_sql: Boolean(sql) });
   const { QueryExecutionId } = await athena.send(new StartQueryExecutionCommand(params));
   while (true) {
     const exec = await athena.send(new GetQueryExecutionCommand({ QueryExecutionId }));
     const state = exec.QueryExecution?.Status?.State;
+    logProgress('athena.query.poll', { state });
     if (state === 'SUCCEEDED') break;
     if (state === 'FAILED' || state === 'CANCELLED') throw new Error(`Athena query ${state}`);
     await sleep(2000);
   }
   let results = await athena.send(new GetQueryResultsCommand({ QueryExecutionId }));
-  return transformAthenaResult(results);
+  const out = transformAthenaResult(results);
+  logProgress('athena.query.done', { duration_ms: elapsedMs(t0), rows: out.length });
+  return out;
 }
 
 
