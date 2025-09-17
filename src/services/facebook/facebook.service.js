@@ -1,5 +1,6 @@
 import { sendHttpRequest } from '../../utils/http.js';
 import { saveFacebookImportStatus } from '../status/status.service.js';
+import { logProgress } from '../../utils/logger.js';
 
 function convertListsToDict(data) {
   if (typeof data !== 'object' || data === null) return data;
@@ -52,10 +53,14 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
   const adsUrl = `${BASE_URL}/${accountId}/insights?level=ad&fields=ad_id&limit=50&action_breakdowns=action_type&time_range={"since":"${start_date}","until":"${end_date}"}`;
   const insights = [];
   let nextPage = adsUrl;
+  let page = 0;
+  logProgress('fb.insights.list.start', { accountId, start_date, end_date }, { uuid });
   while (nextPage) {
     const adsResponse = await fetchAds(nextPage, fbAccessToken);
     if (!adsResponse) break;
+    page += 1;
     const adIds = (adsResponse?.data || []).map((ad) => ad.ad_id);
+    logProgress('fb.insights.list.page', { page, ad_count: adIds.length }, { uuid });
     const insightsBatchRequests = adIds.map((adId) => ({
       method: 'GET',
       relative_url: `${adId}/insights?level=ad&fields=${FIELDS}&time_range={"since":"${start_date}","until":"${end_date}"}`,
@@ -84,9 +89,11 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
         insights.push({ ...insightData, creative: creativeData, status, post_url, format: creativeData?.object_type || null });
       });
       await saveFacebookImportStatus(uuid, { insights_count: insights.length });
+      logProgress('fb.insights.page.done', { page, cumulative: insights.length }, { uuid });
     }
     nextPage = adsResponse.paging?.next;
   }
+  logProgress('fb.insights.list.done', { total_insights: insights.length, pages: page }, { uuid });
   return insights;
 }
 

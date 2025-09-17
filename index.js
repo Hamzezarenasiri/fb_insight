@@ -16,6 +16,7 @@ import { convertToObject as convertToObjectSvc, findNonEmptyKeys as findNonEmpty
 import { getFbAdPreview as getFbAdPreviewSvc, getPropsOfSource as getPropsOfSourceSvc, removeUTM as removeUTMSvc } from './src/services/enrichment/preview.service.js';
 import { updateMessagesAndLinks as updateMessagesAndLinksSvc, generateProduct as generateProductSvc } from './src/services/enrichment/product.service.js';
 import { tagging as taggingSvc } from './src/services/enrichment/tagging.service.js';
+import { logProgress, startTimer, elapsedMs } from './src/utils/logger.js';
 
 // Sentry is initialized in src/server.js
 dotenv.config();
@@ -786,7 +787,9 @@ async function mainTask(params) {
         }
     }
     try {
-        console.log("start ....", params)
+        const t0 = startTimer();
+        const ctx = { uuid, accountId: FBadAccountId, agencyId: String(agencyId), clientId: String(clientId) };
+        logProgress('task.start', { start_date, end_date, importListName }, ctx)
         schema.push({
             "key": "result",
             "second_key": ad_objective_id,
@@ -838,6 +841,7 @@ async function mainTask(params) {
         // }, {
         //     "$set": {"updatedAt": new Date()}
         // }, {upsert: true})).schema || [];
+        logProgress('metrics.map.start', {}, ctx)
         const MetricsIDs = (await aggregateDocumentsRepo("metrics", [
             {
                 $match: {
@@ -887,24 +891,30 @@ async function mainTask(params) {
                 }
             }
         ]))[0];
-        console.log("Getting ads ... ")
+        logProgress('metrics.map.done', { keys: MetricsIDs ? Object.keys(MetricsIDs).length : 0 }, ctx)
+        logProgress('fetch.ads.start', {}, ctx)
         let results = await getAdsInsightsSvc(FBadAccountId, fbAccessToken, start_date, end_date, uuid, FB_FIELDS)
+        logProgress('fetch.ads.done', { ads_count: results?.length || 0 }, ctx)
         await insertManyRepo("fb_insights", results.map(item => ({
             ...item,
             uuid
         })))
+        logProgress('fb_insights.inserted', { inserted: results?.length || 0 }, ctx)
         if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
+            logProgress('athena.start', {}, ctx)
             results = aggregateByCode(results);
             const athena_result = await runAthenaQuerySvc({ start_date, end_date });
             await insertManyRepo("athena_result", athena_result.map(item => ({
                 ...item,
                 uuid
             })))
+            logProgress('athena.done', { rows: athena_result?.length || 0 }, ctx)
             results = mergeArraysByAdName(results, athena_result)
             await insertManyRepo("merged_results", results.map(item => ({
                 ...item,
                 uuid
             })))
+            logProgress('merge.athena', { merged_count: results?.length || 0 }, ctx)
         }
         const ads = convertToObjectSvc(results, ad_objective_field_expr, ad_objective_id, ["lead", "appts", "show", "sold", "green_appts", "yellow_appts", "red_appts","cpgya","s2a","gya","gyv","cpappts"])
         console.log('SAMPLE', ads[0].Ad_Name, ads[0].video_views_15s, ads[0].impressions, ads[0].hold);
@@ -988,6 +998,7 @@ newDataArray.forEach((row, idx) => {
         );
 
         
+        logProgress('assets.map.start', {}, ctx)
         const AssetsIds = await aggregateDocumentsRepo("assets", [
             {
                 $match: {
@@ -1037,7 +1048,9 @@ newDataArray.forEach((row, idx) => {
                 }
             }
         ]);
+        logProgress('assets.map.done', { keys: (AssetsIds?.[0] && Object.keys(AssetsIds[0]).length) || 0 }, ctx)
         let asset_ids = AssetsIds[0] || {}
+        logProgress('assets.upsert.loop.start', { count: validatedRecords.length }, ctx)
         for (const entry of validatedRecords) {
             const creative = entry.other_fields ? entry.other_fields.creative : undefined;
             let product_link = null;
@@ -1108,6 +1121,7 @@ newDataArray.forEach((row, idx) => {
             }
             entry.createdAt = new Date();
         }
+        logProgress('assets.upsert.loop.done', {}, ctx)
         if (!validatedRecords || validatedRecords.length === 0) {
             await saveFacebookImportStatusSvc(uuid, {
                 status: "is_empty",
@@ -1167,15 +1181,22 @@ newDataArray.forEach((row, idx) => {
             status: "Analyzing imported data",
             percentage: 20
         })
+        logProgress('enrichment.messages_links.start', {}, ctx)
         await updateMessagesAndLinksSvc(uuid, clientId)
+        logProgress('enrichment.messages_links.done', {}, ctx)
+        logProgress('enrichment.products.start', {}, ctx)
         await generateProductSvc(uuid, clientId, agencyId)
+        logProgress('enrichment.products.done', {}, ctx)
         if (ai) {
+            logProgress('tagging.start', { ai }, ctx)
             const response = await taggingSvc(import_list_inserted.insertedId, clientId, ai)
+            logProgress('tagging.done', {}, ctx)
         } else {
             await saveFacebookImportStatus(uuid, {
                 status: "success",
                 percentage: 100
             })
+            logProgress('tagging.skipped', {}, ctx)
         }
     } catch (error) {
         console.error("An error occurred:", error);
@@ -1210,7 +1231,9 @@ async function adLibraryTask(params) {
     userId = new ObjectId(userId);
     let schema = []
     try {
-        console.log("start adLibrary....", params)
+        const t0 = startTimer();
+        const ctx = { uuid, accountId: FBadAccountId, agencyId: String(agencyId), clientId: String(clientId) };
+        logProgress('adlib.start', { start_date, end_date, importListName, max_count }, ctx)
         await saveFacebookImportStatus(uuid, {
             start_date,
             end_date,
@@ -1223,12 +1246,16 @@ async function adLibraryTask(params) {
             percentage: -1,
             createdAt: new Date()
         })
-        console.log("Getting ads ... ")
+        logProgress('adlib.fetch.start', { max_count }, ctx)
         let results = await getAdsLibrarySvc(FBadAccountId, fbAccessToken, start_date, end_date, uuid, search_page_ids, max_count)
-        return await insertManyRepo("fb_ad_libraries", results.map(item => ({
+        logProgress('adlib.fetch.done', { ads_count: results?.length || 0 }, ctx)
+        const inserted = await insertManyRepo("fb_ad_libraries", results.map(item => ({
             ...item,
             uuid
         })))
+        logProgress('adlib.inserted', { inserted: inserted?.insertedCount || results?.length || 0 }, ctx)
+        logProgress('adlib.done', { duration_ms: elapsedMs(t0) }, ctx)
+        return inserted
     } catch (error) {
         console.error("An error occurred:", error);
         await saveFacebookImportStatus(uuid, {
