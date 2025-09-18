@@ -81,12 +81,15 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
     if (insightsBatchResponse && adDetailBatchResponse) {
       insightsBatchResponse.forEach((result) => {
         if (!result.body) return;
-        const insightData = JSON.parse(result.body)?.data?.[0];
-        if (!insightData) return;
-        const creativeData = adDetailById[insightData.ad_id]?.creative || {};
+        const insightDataRaw = JSON.parse(result.body)?.data?.[0];
+        if (!insightDataRaw) return;
+        // Normalize FB arrays-of-objects and numeric strings to plain objects/numbers
+        const insightData = convertListsToDict(insightDataRaw);
+        const creativeRaw = adDetailById[insightData.ad_id]?.creative || {};
+        const creativeData = convertListsToDict(creativeRaw);
         const status = adDetailById[insightData.ad_id]?.status || {};
         const post_url = creativeData.effective_object_story_id ? `https://www.facebook.com/${creativeData.effective_object_story_id}` : null;
-        insights.push({ ...insightData, creative: creativeData, status, post_url, format: creativeData?.object_type || null });
+        insights.push(convertListsToDict({ ...insightData, creative: creativeData, status, post_url, format: creativeData?.object_type || null }));
       });
       await saveFacebookImportStatus(uuid, { insights_count: insights.length });
       logProgress('fb.insights.page.done', { page, cumulative: insights.length }, { uuid });
