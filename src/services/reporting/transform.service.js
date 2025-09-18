@@ -12,10 +12,6 @@ export function convertToObject(data, ad_objective_field_expr, ad_objective_id, 
     }, {});
     // Prefer inline_link_clicks; fallback to actions.link_click when present
     const linkClicks = item.inline_link_clicks ?? item.actions?.link_click ?? null;
-    const extraFieldsValues = extraFields.reduce((acc, field) => {
-      acc[field] = item[field];
-      return acc;
-    }, {});
     return {
       Ad_Name: ad_name || 'null_name',
       impressions: impressions ?? null,
