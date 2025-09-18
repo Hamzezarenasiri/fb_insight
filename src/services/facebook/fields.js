@@ -51,21 +51,16 @@ export const FIELDS = [
   "cpc","cpm","cpp","created_time","ctr","date_start","date_stop",
   // critical base metrics for reporting
   "impressions","reach","spend","inline_link_clicks","frequency",
-  // additional useful engagement/click metrics
-  "inline_link_click_ctr","website_ctr","outbound_clicks","outbound_clicks_ctr",
-  // purchase/roas aggregates
-  "purchase_roas",
-  // video metrics used by mapping/hold/vvr
+  // video engagement fields used to compute vvr/hold and related metrics
+  "video_thruplay_watched_actions",
   "video_avg_time_watched_actions",
   "video_p25_watched_actions",
   "video_p50_watched_actions",
   "video_p75_watched_actions",
   "video_p95_watched_actions",
   "video_p100_watched_actions",
-  "video_thruplay_watched_actions",
-  "video_play_actions",
-  // viewability
-  "full_view_impressions","full_view_reach",
+  // purchase roas
+  "purchase_roas",
   // ... keep the rest in the original list, or migrate fully in follow-up step
 ];
 

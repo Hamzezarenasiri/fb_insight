@@ -4,7 +4,6 @@ An Express.js API to import and process Facebook Ads data. It fetches ad-level i
 
 ### Features
 - **Facebook insights**: Graph API v22.0 insights with creatives (batched requests)
-- **Response normalization**: Arrays of `{action_type,value}` (e.g., `actions`, `cost_per_action_type`) are converted to objects; numeric strings/dates parsed for correct metric calculations
 - **Ad Library**: Search by `search_page_ids` and date range
 - **Storage**: MongoDB collections (`fb_insights`, `metrics`, `reports_data`, `assets`, etc.)
 - **Optional Athena**: Query and merge aggregates for selected accounts
@@ -140,7 +139,7 @@ Call via `https://example.com/run-task`.
 Triggers Facebook Ads insights import for the provided account and date range. Validated via Zod.
 
 - **Headers**
-  - `Authorization: Bearer <token>` (required; header presence is validated)
+  - `Authorization: Bearer <token>` (required)
 
 - **Body (JSON)**
 ```json
@@ -168,9 +167,6 @@ Triggers Facebook Ads insights import for the provided account and date range. V
 
 - **Processing**
   - Enqueues a BullMQ job (`run-task`) handled by `task.worker.js`
-  - Normalizes Facebook responses (arrays → objects, numeric strings → numbers/dates)
-  - Canonicalizes link clicks: `link_clicks = inline_link_clicks || actions.link_click`
-  - Computes CPC from `cost_per_action_type.link_click` or falls back to `spend / link_clicks`
   - Persists raw and processed data; optionally merges Athena; enriches assets
 
 ### POST `/run-ad-library`
@@ -243,7 +239,6 @@ Fetches Facebook Ad Library entries (optional endpoint).
 - **Redis**: Ensure Redis is reachable by workers (BullMQ recommends Redis >= 6.2; warnings are informational)
 - **Athena**: Check AWS creds, region, database, and S3 output location
 - **Facebook API**: Validate access token scopes and date ranges; 429s will backoff and retry automatically
-- **Zero/Infinity metrics**: If CVR/CPC/CPR appear as `0`/`Infinity`, update to the latest build. The pipeline now normalizes arrays and numeric strings and derives `link_clicks` consistently, which resolves these cases.
 - **Swagger not found**: Install `swagger-ui-express` and `yamljs`, then restart
 - **Port in use (EADDRINUSE)**: Stop old PM2 processes or change `PORT`
 - **npm ci lock mismatch**: Run `npm install` locally, commit `package-lock.json`, deploy

@@ -11,8 +11,6 @@ paths:
     post:
       summary: Enqueue Facebook Ads insights import task
       tags: [tasks]
-      security:
-        - BearerAuth: []
       requestBody:
         required: true
         content:
