@@ -199,6 +199,19 @@ Fetches Facebook Ad Library entries (optional endpoint).
 - **Validation**: Implemented via Zod schemas under `src/schemas/` and applied by `validate` middleware. Optional fields like `ai`, `ad_objective_id`, `ad_objective_field_expr` accept `null`.
 - **OpenAPI**: Served at `/docs` using `swagger-ui-express` with `src/docs/openapi.yaml`.
 
+### Facebook insights ingestion details
+
+- Response normalization: Facebook returns many metrics as arrays of `{action_type, value}` or as numeric strings. The API normalizes these into plain objects and numbers. Example: `actions: [{action_type: 'link_click', value: '159'}]` becomes `actions.link_click = 159`. Dotted action types are flattened with `_` (e.g., `offsite_conversion.custom.123` → `offsite_conversion_custom_123`).
+- Requested fields: Includes `impressions`, `reach`, `spend`, `inline_link_clicks`, `frequency`, `actions`, `action_values`, and video fields `video_thruplay_watched_actions`, `video_avg_time_watched_actions`, `video_p{25,50,75,95,100}_watched_actions`, plus `purchase_roas`.
+- Mapping for metrics:
+  - `link_clicks` is sourced from `inline_link_clicks` (fallback `actions.link_click`). Both `link_clicks` and legacy `link_click` are populated.
+  - `vvr = actions.video_view / impressions`.
+  - `hold = video_thruplay_watched_actions.video_view / impressions`.
+  - `cpc/cpl/cpa` prefer `cost_per_action_type.{link_click|lead|purchase}`; otherwise derived.
+  - `purchases` is mapped from `actions.purchase` for formulas like AOV/CPA.
+  - `frequency` is requested; if missing but `impressions` and `reach` exist, a fallback `frequency = impressions / reach` is computed.
+- Objective result: `result` is taken from `ad_objective_field_expr` (e.g., `actions.lead`). `cvr = result / link_clicks`, `cpr = spend / result`.
+
 ## Data model (MongoDB)
 - **fb_insights**: raw ad insights with creative, status, post_url
 - **metrics**: processed records per import list and schema
