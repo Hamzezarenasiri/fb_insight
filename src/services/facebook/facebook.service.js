@@ -80,13 +80,9 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
       }
     });
     if (insightsBatchResponse && adDetailBatchResponse) {
-      // Track which ACTIVE ads have insights
-      const activeAdIds = adIds.filter((id) => {
-        const det = adDetailById[id] || {};
-        return det.effective_status === 'ACTIVE' || det.status === 'ACTIVE';
-      });
+      // Track which ads have insights; we'll backfill zero rows for those without
       const seen = Object.create(null);
-      activeAdIds.forEach((id) => { seen[id] = false; });
+      adIds.forEach((id) => { seen[id] = false; });
       insightsBatchResponse.forEach((result, idx) => {
         if (!result.body) return;
         const parsed = JSON.parse(result.body);
@@ -102,8 +98,8 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
           if (adId in seen) seen[adId] = true;
         }
       });
-      // For ACTIVE ads with no insights rows, synthesize a zero-metric record
-      activeAdIds.forEach((adId) => {
+      // For ads with no insights rows, synthesize a zero-metric record
+      adIds.forEach((adId) => {
         if (!seen[adId]) {
           const det = adDetailById[adId] || {};
           const creativeData = det?.creative || {};
