@@ -212,6 +212,12 @@ Fetches Facebook Ad Library entries (optional endpoint).
   - `frequency` is requested; if missing but `impressions` and `reach` exist, a fallback `frequency = impressions / reach` is computed.
 - Objective result: `result` is taken from `ad_objective_field_expr` (e.g., `actions.lead`). `cvr = result / link_clicks`, `cpr = spend / result`.
 
+### Inclusion of ACTIVE ads with zero activity
+
+- The system lists ads from the Ads edge and fetches per-ad insights for the selected range.
+- If an ad is ACTIVE (by `effective_status` or `status`) and returns no insights rows for the range, the API synthesizes a zero-metric record (impressions=0, spend=0, link_clicks=0, vvr=0, hold=0, etc.).
+- This ensures active ads are present in reports even when they had no measurable actions in the period, avoiding undercount/misinterpretation.
+
 ## Data model (MongoDB)
 - **fb_insights**: raw ad insights with creative, status, post_url
 - **metrics**: processed records per import list and schema

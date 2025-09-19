@@ -13,6 +13,9 @@ paths:
       tags: [tasks]
       security:
         - BearerAuth: []
+      description: |
+        Fetches ad-level insights for the specified date range. The system lists ads via the Ads edge and fetches per-ad insights.
+        ACTIVE ads (by effective_status/status) that return no insights rows in the date range are still included by inserting a synthesized zero-metric record (impressions=0, spend=0, link_clicks=0, etc.).
       requestBody:
         required: true
         content:

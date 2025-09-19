@@ -50,7 +50,8 @@ export async function fetchBatchData(batchRequests, fbAccessToken) {
 }
 
 export async function getAdsInsights(accountId, fbAccessToken, start_date, end_date, uuid, FIELDS) {
-  const adsUrl = `${BASE_URL}/${accountId}/insights?level=ad&fields=ad_id&limit=50&action_breakdowns=action_type&time_range={"since":"${start_date}","until":"${end_date}"}`;
+  // List ads first so we can include ACTIVE ads with zero activity in the date range
+  const adsUrl = `${BASE_URL}/${accountId}/ads?fields=id&limit=50`;
   const insights = [];
   let nextPage = adsUrl;
   let page = 0;
@@ -59,7 +60,7 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
     const adsResponse = await fetchAds(nextPage, fbAccessToken);
     if (!adsResponse) break;
     page += 1;
-    const adIds = (adsResponse?.data || []).map((ad) => ad.ad_id);
+    const adIds = (adsResponse?.data || []).map((ad) => ad.id);
     logProgress('fb.insights.list.page', { page, ad_count: adIds.length }, { uuid });
     const insightsBatchRequests = adIds.map((adId) => ({
       method: 'GET',
@@ -67,7 +68,7 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
     }));
     const adDetailBatchRequests = adIds.map((adId) => ({
       method: 'GET',
-      relative_url: `${adId}?fields=status,creative{id,name,video_id,object_id,product_data,product_set_id,object_story_id,effective_object_story_id,object_story_spec,object_store_url,object_type,thumbnail_id,destination_set_id,instagram_permalink_url,link_og_id,link_url,object_url},source_ad_id,name,preview_shareable_link`,
+      relative_url: `${adId}?fields=status,effective_status,creative{id,name,video_id,object_id,product_data,product_set_id,object_story_id,effective_object_story_id,object_story_spec,object_store_url,object_type,thumbnail_id,destination_set_id,instagram_permalink_url,link_og_id,link_url,object_url},source_ad_id,name,preview_shareable_link`,
     }));
     const insightsBatchResponse = (await fetchBatchData(insightsBatchRequests, fbAccessToken)) || [];
     const adDetailBatchResponse = (await fetchBatchData(adDetailBatchRequests, fbAccessToken)) || [];
@@ -79,16 +80,48 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
       }
     });
     if (insightsBatchResponse && adDetailBatchResponse) {
-      insightsBatchResponse.forEach((result) => {
+      // Track which ACTIVE ads have insights
+      const activeAdIds = adIds.filter((id) => {
+        const det = adDetailById[id] || {};
+        return det.effective_status === 'ACTIVE' || det.status === 'ACTIVE';
+      });
+      const seen = Object.create(null);
+      activeAdIds.forEach((id) => { seen[id] = false; });
+      insightsBatchResponse.forEach((result, idx) => {
         if (!result.body) return;
-        const insightData = JSON.parse(result.body)?.data?.[0];
-        if (!insightData) return;
-        // Normalize arrays of { action_type, value } to dictionaries and coerce numeric strings/dates
-        const normalized = convertListsToDict({ ...insightData });
-        const creativeData = adDetailById[insightData.ad_id]?.creative || {};
-        const status = adDetailById[insightData.ad_id]?.status || {};
-        const post_url = creativeData.effective_object_story_id ? `https://www.facebook.com/${creativeData.effective_object_story_id}` : null;
-        insights.push({ ...normalized, creative: creativeData, status, post_url, format: creativeData?.object_type || null });
+        const parsed = JSON.parse(result.body);
+        const insightData = parsed?.data?.[0];
+        if (insightData) {
+          // Normalize arrays of { action_type, value } to dictionaries and coerce numeric strings/dates
+          const normalized = convertListsToDict({ ...insightData });
+          const adId = normalized.ad_id;
+          const creativeData = adDetailById[adId]?.creative || {};
+          const status = adDetailById[adId]?.status || {};
+          const post_url = creativeData.effective_object_story_id ? `https://www.facebook.com/${creativeData.effective_object_story_id}` : null;
+          insights.push({ ...normalized, creative: creativeData, status, post_url, format: creativeData?.object_type || null });
+          if (adId in seen) seen[adId] = true;
+        }
+      });
+      // For ACTIVE ads with no insights rows, synthesize a zero-metric record
+      activeAdIds.forEach((adId) => {
+        if (!seen[adId]) {
+          const det = adDetailById[adId] || {};
+          const creativeData = det?.creative || {};
+          const post_url = creativeData?.effective_object_story_id ? `https://www.facebook.com/${creativeData.effective_object_story_id}` : null;
+          const synthetic = convertListsToDict({
+            ad_id: adId,
+            ad_name: det?.name || `ad_${adId}`,
+            impressions: 0,
+            reach: 0,
+            spend: 0,
+            ctr: 0,
+            cpm: 0,
+            inline_link_clicks: 0,
+            actions: { link_click: 0, video_view: 0 },
+            video_thruplay_watched_actions: { video_view: 0 },
+          });
+          insights.push({ ...synthetic, creative: creativeData, status: det?.status || {}, post_url, format: creativeData?.object_type || null });
+        }
       });
       await saveFacebookImportStatus(uuid, { insights_count: insights.length });
       logProgress('fb.insights.page.done', { page, cumulative: insights.length }, { uuid });
