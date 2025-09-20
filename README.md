@@ -218,6 +218,36 @@ Fetches Facebook Ad Library entries (optional endpoint).
 - If an ad is ACTIVE (by `effective_status` or `status`) and returns no insights rows for the range, the API synthesizes a zero-metric record (impressions=0, spend=0, link_clicks=0, vvr=0, hold=0, etc.).
 - This ensures active ads are present in reports even when they had no measurable actions in the period, avoiding undercount/misinterpretation.
 
+### Hybrid fetch to prevent spend gaps
+
+- Primary listing: Insights index
+  - We first list ads via `/{account_id}/insights?level=ad&fields=ad_id&time_range=...`.
+  - This captures all ads that had in-range insights/spend, even if they are currently paused/archived.
+- Secondary pass: Ads edge for zeros
+  - We then query `/{account_id}/ads?fields=id,name,effective_status,status&ad_status=ACTIVE`.
+  - For currently ACTIVE ads missing from the primary set, we add a synthesized zero-metric row so they remain visible.
+- Result: Ads with spend in-range are always included; ACTIVE ads with no in-range activity get zero rows; non-active/no-activity ads are not included.
+
+### Logging and observability
+
+The API emits structured logs you can tail with PM2:
+
+- Fetch progress
+  - `fb.insights.list.start|page|page.done|list.done`
+  - `fb.ads.edge.page` (Ads edge pagination and count of zeros to add)
+- Batch-level diagnostics
+  - `fb.batch.insights.error|missing_body|parse_error`
+  - `fb.batch.detail.error|missing_body|parse_error`
+- Synthetic rows
+  - `fb.synthetic.zero` when a zero-metric ad record is created
+- Ads pass fallback
+  - `fb.ads.edge.skip` if Ads edge call is skipped due to errors
+
+Monitor on server:
+```bash
+npx pm2 logs fb-task-worker --lines 200 --timestamp
+```
+
 ## Data model (MongoDB)
 - **fb_insights**: raw ad insights with creative, status, post_url
 - **metrics**: processed records per import list and schema

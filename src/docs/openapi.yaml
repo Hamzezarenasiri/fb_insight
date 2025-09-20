@@ -16,6 +16,17 @@ paths:
       description: |
         Fetches ad-level insights for the specified date range. The system lists ads via the Ads edge and fetches per-ad insights.
         ACTIVE ads (by effective_status/status) that return no insights rows in the date range are still included by inserting a synthesized zero-metric record (impressions=0, spend=0, link_clicks=0, etc.).
+        
+        Import behavior to avoid spend gaps:
+        - Primary listing is via Insights index (`/{account_id}/insights?level=ad&fields=ad_id&time_range=...`) so any ad with in-range spend/insights is included, even if currently paused/archived.
+        - Secondary pass queries Ads edge with `ad_status=ACTIVE` to add zero rows for currently ACTIVE ads missing from the primary listing.
+
+        Diagnostics (structured logs):
+        - fb.insights.list.start|page|page.done|list.done
+        - fb.batch.insights.error|missing_body|parse_error
+        - fb.batch.detail.error|missing_body|parse_error
+        - fb.ads.edge.page (and fb.ads.edge.skip on failure)
+        - fb.synthetic.zero (when a zero-row is created)
       requestBody:
         required: true
         content:
