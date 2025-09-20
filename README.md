@@ -228,6 +228,10 @@ Fetches Facebook Ad Library entries (optional endpoint).
   - For currently ACTIVE ads missing from the primary set, we add a synthesized zero-metric row so they remain visible.
 - Result: Ads with spend in-range are always included; ACTIVE ads with no in-range activity get zero rows; non-active/no-activity ads are not included.
 
+### Timezone and totals
+
+- Facebook Insights use the ad account's timezone for date boundaries. If you compare totals against UTC-based ranges, you may see small discrepancies at day boundaries. Provide `since/until` using account-local dates when reconciling with UI totals.
+
 ### Logging and observability
 
 The API emits structured logs you can tail with PM2:
@@ -247,6 +251,31 @@ Monitor on server:
 ```bash
 npx pm2 logs fb-task-worker --lines 200 --timestamp
 ```
+
+### Security and HIPAA considerations
+
+If you process health-related data, treat all data as potentially sensitive and avoid PHI in inputs/outputs.
+
+- Transport
+  - Terminate TLS at Nginx and expose the API only over HTTPS.
+  - Restrict network access (security groups/firewalls, private subnets/VPC).
+- Authentication / Authorization
+  - Current /run-task only checks that `Authorization` is present. For regulated environments, enforce strong auth (API keys/JWT) and IP allowlists.
+  - For `/run-ad-library`, the header must equal `STATIC_TOKEN`. Prefer rotating API keys stored in a secret manager.
+- Secrets management
+  - Store tokens/keys (MongoDB URI, Redis password, FB tokens, Sentry DSN, OpenAI key) in a secret manager; rotate regularly.
+- Logging
+  - Do not log PHI/PII. The code logs stages/metrics only; keep it that way. Ensure Sentry (if enabled) scrubs PII and request bodies.
+  - Access tokens are redacted in outbound HTTP logs.
+- Data at rest
+  - Use MongoDB TLS and disk encryption. Limit access via role-based users with least privilege.
+  - For Redis, enable AUTH (and TLS if available) and isolate to a private network.
+- Data minimization & retention
+  - Only store fields required for reporting; set retention windows and implement secure deletion on request.
+- Auditing
+  - Maintain audit logs for who initiated imports, when, and from where (IP/user). Retain per compliance policy.
+- Contracts
+  - Execute BAAs with applicable vendors (cloud, logging, Sentry, OpenAI, etc.) when processing regulated data.
 
 ## Data model (MongoDB)
 - **fb_insights**: raw ad insights with creative, status, post_url
