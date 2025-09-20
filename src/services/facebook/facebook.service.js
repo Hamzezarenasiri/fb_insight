@@ -106,10 +106,17 @@ export async function getAdsInsights(accountId, fbAccessToken, start_date, end_d
     nextPage = listResponse.paging?.next;
   }
   // Second pass: include ACTIVE ads with zero activity in-range (synthetic zeros)
-  const adsUrl = `${BASE_URL}/${accountId}/ads?fields=id,name,effective_status,status&effective_status=["ACTIVE"]&limit=50`;
+  // Use ad_status (stable) instead of effective_status to avoid 400s across versions
+  const adsUrl = `${BASE_URL}/${accountId}/ads?fields=id,name,effective_status,status&ad_status=ACTIVE&limit=50`;
   let nextAds = adsUrl; let adsPages = 0;
   while (nextAds) {
-    const adsResponse = await fetchAds(nextAds, fbAccessToken);
+    let adsResponse;
+    try {
+      adsResponse = await fetchAds(nextAds, fbAccessToken);
+    } catch (e) {
+      logProgress('fb.ads.edge.skip', { error: String(e?.message || e) }, { uuid });
+      break;
+    }
     if (!adsResponse) break;
     adsPages += 1;
     const pageAds = (adsResponse?.data || []);
