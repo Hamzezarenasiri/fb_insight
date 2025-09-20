@@ -139,7 +139,7 @@ Call via `https://example.com/run-task`.
 Triggers Facebook Ads insights import for the provided account and date range. Validated via Zod.
 
 - **Headers**
-  - `Authorization: Bearer <token>` (required)
+  - `Authorization: <any non-empty value>` (required; current implementation only checks presence)
 
 - **Body (JSON)**
 ```json
@@ -173,7 +173,7 @@ Triggers Facebook Ads insights import for the provided account and date range. V
 Fetches Facebook Ad Library entries (optional endpoint).
 
 - **Headers**
-  - `Authorization: Bearer <STATIC_TOKEN>` (required if auth enabled)
+  - `Authorization: <STATIC_TOKEN>` (exact token; no `Bearer` prefix)
 
 - **Body (JSON)**
 ```json

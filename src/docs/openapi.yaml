@@ -27,6 +27,8 @@ paths:
         - fb.batch.detail.error|missing_body|parse_error
         - fb.ads.edge.page (and fb.ads.edge.skip on failure)
         - fb.synthetic.zero (when a zero-row is created)
+        
+        Authorization note: current implementation only checks that an `Authorization` header is present (value is not validated/authenticated).
       requestBody:
         required: true
         content:
@@ -55,6 +57,8 @@ paths:
       tags: [tasks]
       security:
         - StaticToken: []
+      description: |
+        Requires header `Authorization: <STATIC_TOKEN>` (exact match; no Bearer prefix).
       requestBody:
         required: true
         content:
