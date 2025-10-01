@@ -18,6 +18,9 @@ export const config = {
     apiKey: process.env.FLUX_STATIC_API_KEY,
   },
   openaiKey: process.env.OPENAI_API_KEY,
+  ghl: {
+    apiBase: process.env.GHL_API_BASE || 'https://services.leadconnectorhq.com',
+    apiVersion: process.env.GHL_API_VERSION || '2021-07-28',
+  },
 };
-
 

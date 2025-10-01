@@ -7,6 +7,7 @@ import { saveFacebookImportStatus as saveFacebookImportStatusSvc } from './src/s
 import { sendHttpRequest as sendHttpRequestSvc } from './src/utils/http.js';
 import { getAdsInsights as getAdsInsightsSvc } from './src/services/facebook/facebook.service.js';
 import { getAdsLibrary as getAdsLibrarySvc } from './src/services/facebook/adLibrary.service.js';
+import { fetchLeadCountsFromGhl as fetchLeadCountsFromGhlSvc } from './src/services/ghl/ghl.service.js';
 import { FIELDS as FB_FIELDS } from './src/services/facebook/fields.js';
 import { default_schema as DEFAULT_FB_SCHEMA, buildClientSchema } from './src/services/reporting/schema.defaults.js';
 import { calculateMetrics as calculateMetricsSvc, fillMissingFields as fillMissingFieldsSvc } from './src/services/reporting/metrics.service.js';
@@ -900,6 +901,30 @@ async function mainTask(params) {
             uuid
         })))
         logProgress('fb_insights.inserted', { inserted: results?.length || 0 }, ctx)
+        if (FBadAccountId === 'act_435957451701926') {
+            const leadCounts = await fetchLeadCountsFromGhlSvc({
+                accountId: FBadAccountId,
+                startDate: start_date,
+                endDate: end_date,
+                ctx,
+            });
+            if (leadCounts) {
+                const matched = Object.keys(leadCounts).length;
+                const totalLeads = Object.values(leadCounts).reduce((sum, value) => {
+                    const numeric = Number(value) || 0;
+                    return sum + numeric;
+                }, 0);
+                results = results.map((item) => {
+                    const raw = leadCounts[item.ad_id];
+                    const leadValue = Number.isFinite(raw) ? raw : Number(raw) || 0;
+                    return { ...item, lead: leadValue };
+                });
+                logProgress('ghl.merge.leads', { matched, totalLeads }, ctx);
+            } else {
+                results = results.map((item) => ({ ...item, lead: item.lead ?? 0 }));
+                logProgress('ghl.merge.leads', { matched: 0, reason: 'no_counts' }, ctx);
+            }
+        }
         if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
             logProgress('athena.start', {}, ctx)
             results = aggregateByCode(results);
@@ -1325,5 +1350,3 @@ export { adLibraryTask };
 //         max_count : 50
 //     })
 // )
-
-

@@ -71,6 +71,12 @@ Create `.env` in the project root.
   - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
   - `ATHENA_DATABASE` (e.g. `marketing`)
   - `ATHENA_OUTPUT_LOCATION` (e.g. `s3://bucket/prefix/`)
+- **Go High Level (optional, per-account leads)**
+  - `GHL_API_TOKEN` and `GHL_LOCATION_ID` (fallback credentials)
+  - `GHL_TOKEN_ACT_435957451701926`, `GHL_LOCATION_ACT_435957451701926` (example account-specific overrides)
+  - `GHL_API_BASE` (default `https://services.leadconnectorhq.com`)
+  - `GHL_API_VERSION` (default `2021-07-28`)
+  - `GHL_PAGE_LIMIT` (optional pagination size, default `100`)
 - **Redis (BullMQ)**
   - `REDIS_HOST` (default `127.0.0.1`)
   - `REDIS_PORT` (default `6379`)
@@ -89,6 +95,8 @@ AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
 ATHENA_DATABASE=marketing
 ATHENA_OUTPUT_LOCATION=s3://your-bucket/athena/results/
+GHL_TOKEN_ACT_435957451701926=pit-your-token
+GHL_LOCATION_ACT_435957451701926=jCg6NFxDi5ACN8xv6H2C
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 ```
@@ -343,5 +351,3 @@ npx pm2 logs fb-api fb-task-worker fb-adlib-worker --lines 200
 
 ## License
 ISC
-
-
