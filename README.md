@@ -7,6 +7,7 @@ An Express.js API to import and process Facebook Ads data. It fetches ad-level i
 - **Ad Library**: Search by `search_page_ids` and date range
 - **Storage**: MongoDB collections (`fb_insights`, `metrics`, `reports_data`, `assets`, etc.)
 - **Optional Athena**: Query and merge aggregates for selected accounts
+- **Go High Level merge**: Pull CRM opportunities and hydrate `lead` counts for allowlisted ad accounts (via `utmAdId` ↔ `ad_id`)
 - **Enrichment**: Preview scraping, optional OpenAI, external tagging API
 - **Validation**: Zod request schemas per endpoint
 - **Jobs**: BullMQ queues + workers replacing `setTimeout`
@@ -16,7 +17,7 @@ An Express.js API to import and process Facebook Ads data. It fetches ad-level i
 - **Ingress**: Client → Nginx (TLS) → Express app
 - **HTTP**: Routes → Controllers → Services → Repositories
 - **Jobs**: Controllers enqueue jobs → BullMQ workers run domain tasks
-- **Data sources**: Facebook Graph API, AWS Athena (optional)
+- **Data sources**: Facebook Graph API, Go High Level (optional), AWS Athena (optional)
 - **Storage**: MongoDB
 
 ### Directory structure (key parts)
@@ -112,6 +113,12 @@ node src/jobs/workers/adLibrary.worker.js
 ```
 
 The server logs: `API listening on <PORT>`.
+
+### Go High Level integration
+
+- A Go High Level pull runs automatically for `act_435957451701926` after Facebook insights import. Configure credentials through either account-specific (`GHL_TOKEN_ACT_...`, `GHL_LOCATION_ACT_...`) or fallback (`GHL_API_TOKEN`, `GHL_LOCATION_ID`) variables.
+- The worker queries `/opportunities/search` using the same date range provided to Facebook and aggregates opportunities by `utmAdId`. Each ad's `lead` metric is overwritten with the GHL count; unmatched ads default to `0`.
+- Ensure `utmAdId` values from Go High Level match Facebook `ad_id` values; otherwise no leads will be attributed.
 
 ### API Docs (OpenAPI)
 
