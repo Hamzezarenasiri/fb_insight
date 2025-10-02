@@ -117,8 +117,20 @@ The server logs: `API listening on <PORT>`.
 ### Go High Level integration
 
 - A Go High Level pull runs automatically for `act_435957451701926` after Facebook insights import. Configure credentials through either account-specific (`GHL_TOKEN_ACT_...`, `GHL_LOCATION_ACT_...`) or fallback (`GHL_API_TOKEN`, `GHL_LOCATION_ID`) variables.
-- The worker queries `/opportunities/search` using the same date range provided to Facebook and aggregates opportunities by `utmAdId`. Each ad's `lead` metric is overwritten with the GHL count; unmatched ads default to `0`.
-- Ensure `utmAdId` values from Go High Level match Facebook `ad_id` values; otherwise no leads will be attributed.
+- The worker paginates `/opportunities/search` with the requested date range, retries on 429/5xx, de-duplicates opportunity IDs, and maps opportunities to ads via `utmAdId` (case-insensitive).
+- Funnel metrics are sourced from the pipeline stage on each opportunity. For every matching ad we populate:
+  - `lead`
+  - `appts`
+  - `noresp`
+  - `show`
+  - `noshow`
+  - `sched`
+  - `surgcancel`
+  - `sold`
+  - `nosurgsold`
+  Each downstream bucket is cumulative (e.g., a `sold` contact is also counted in `lead`, `appts`, and `show`).
+- Ensure `utmAdId` values from Go High Level match Facebook `ad_id` values; otherwise no funnel metrics will be attributed.
+- Date filters are sent in `MM-DD-YYYY` format; you can override the default page size via `GHL_PAGE_LIMIT` if the API allows larger batches.
 
 ### API Docs (OpenAPI)
 

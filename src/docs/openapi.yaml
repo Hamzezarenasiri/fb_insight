@@ -25,7 +25,8 @@ paths:
         - Secondary pass queries Ads edge with `ad_status=ACTIVE` to add zero rows for currently ACTIVE ads missing from the primary listing.
 
         Additional merges:
-        - For allowlisted accounts (e.g. `act_435957451701926`), the worker fetches Go High Level opportunities for the same date range and maps `utmAdId` values to Facebook `ad_id` fields, overwriting the `lead` metric.
+        - For allowlisted accounts (e.g. `act_435957451701926`), the worker fetches Go High Level opportunities for the same date range, retries on 429/5xx, de-duplicates opportunity IDs, and maps `utmAdId` values to Facebook `ad_id` fields.
+          The following funnel metrics are populated per ad: `lead`, `appts`, `noresp`, `show`, `noshow`, `sched`, `surgcancel`, `sold`, `nosurgsold` (downstream stages roll up into upstream counts).
 
         Diagnostics (structured logs):
         - fb.insights.list.start|page|page.done|list.done
