@@ -61,11 +61,24 @@ function normalizeAccountKey(accountId = '') {
   return accountId.toUpperCase().replace(/[^A-Z0-9]/g, '_');
 }
 
-function formatDateForGhl(isoDate) {
-  if (!isoDate) return isoDate;
-  const parsed = new Date(isoDate);
-  if (Number.isNaN(parsed.valueOf())) return isoDate;
-  return parsed.toISOString().slice(0, 10);
+function formatDateForGhl(input) {
+  if (!input) return input;
+  const str = String(input).trim();
+  const isoMatch = /^\d{4}-\d{2}-\d{2}$/;
+  if (isoMatch.test(str)) {
+    const [year, month, day] = str.split('-');
+    return `${month}-${day}-${year}`;
+  }
+  const parts = str.split('-');
+  if (parts.length === 3 && parts[0].length === 2) {
+    return str;
+  }
+  const parsed = new Date(str);
+  if (Number.isNaN(parsed.valueOf())) return str;
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getUTCDate()).padStart(2, '0');
+  const year = String(parsed.getUTCFullYear());
+  return `${month}-${day}-${year}`;
 }
 
 function normalizeStageId(value) {
@@ -161,10 +174,7 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
     location_id: locationId,
     limit: String(limit),
     date: formattedStart,
-    startDate: formattedStart,
-    start_date: formattedStart,
     endDate: formattedEnd,
-    end_date: formattedEnd,
   };
 
   let page = 1;
