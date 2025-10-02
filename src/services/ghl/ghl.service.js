@@ -5,6 +5,8 @@ const DEFAULT_BASE_URL = 'https://services.leadconnectorhq.com';
 const DEFAULT_VERSION = '2021-07-28';
 const SEARCH_PATH = '/opportunities/search';
 const DEFAULT_LIMIT = 100;
+const MAX_RETRIES = 5;
+const BASE_BACKOFF_MS = 1500;
 
 const PIPELINE_STAGE_GROUPS = {
   appts: new Set([
@@ -53,6 +55,7 @@ const PIPELINE_STAGE_GROUPS = {
     'd849b36a-df3c-469d-9227-90df7d5bc1b5',
   ].map((id) => id.toLowerCase())),
 };
+const PIPELINE_STAGE_ENTRIES = Object.entries(PIPELINE_STAGE_GROUPS);
 
 function normalizeAccountKey(accountId = '') {
   return accountId.toUpperCase().replace(/[^A-Z0-9]/g, '_');
@@ -60,9 +63,9 @@ function normalizeAccountKey(accountId = '') {
 
 function formatDateForGhl(isoDate) {
   if (!isoDate) return isoDate;
-  const [year, month, day] = isoDate.split('-');
-  if (!year || !month || !day) return isoDate;
-  return `${month}-${day}-${year}`;
+  const parsed = new Date(isoDate);
+  if (Number.isNaN(parsed.valueOf())) return isoDate;
+  return parsed.toISOString().slice(0, 10);
 }
 
 function normalizeStageId(value) {
@@ -100,6 +103,27 @@ function getMetricsEntry(map, adId) {
   return map[adId];
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestGhlPage({ url, headers, attempt = 1, ctx }) {
+  try {
+    return await sendHttpRequest({ url, method: 'GET', headers });
+  } catch (error) {
+    const status = error?.response?.status || error?.statusCode || error?.status;
+    const retryable = status === 429 || (status >= 500 && status < 600);
+    if (retryable && attempt < MAX_RETRIES) {
+      const backoff = BASE_BACKOFF_MS * 2 ** (attempt - 1);
+      logProgress('ghl.fetch.retry', { attempt, status, backoff }, ctx);
+      await delay(backoff);
+      return requestGhlPage({ url, headers, attempt: attempt + 1, ctx });
+    }
+    logProgress('ghl.fetch.error', { attempt, status, error: String(error?.message || error) }, ctx);
+    throw error;
+  }
+}
+
 export function resolveGhlCredentials(accountId) {
   const key = normalizeAccountKey(accountId);
   const token = process.env[`GHL_TOKEN_${key}`] || process.env.GHL_API_TOKEN || process.env.GHL_AUTH_TOKEN;
@@ -131,11 +155,16 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
 
   const { token, locationId, baseUrl, version, limit } = credentials;
   const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const formattedStart = formatDateForGhl(startDate);
+  const formattedEnd = formatDateForGhl(endDate);
   const paramsBase = {
     location_id: locationId,
     limit: String(limit),
-    date: formatDateForGhl(startDate),
-    endDate: formatDateForGhl(endDate),
+    date: formattedStart,
+    startDate: formattedStart,
+    start_date: formattedStart,
+    endDate: formattedEnd,
+    end_date: formattedEnd,
   };
 
   let page = 1;
@@ -144,30 +173,36 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
 
   logProgress('ghl.fetch.start', { accountId, startDate, endDate }, ctx);
 
+  let expectedPages = null;
+  const dedupeIds = new Set();
+
   while (true) {
     const params = new URLSearchParams({ ...paramsBase, page: String(page) });
     const url = `${normalizedBase}${SEARCH_PATH}?${params.toString()}`;
-    let data;
-    try {
-      data = await sendHttpRequest({
-        url,
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-          Version: version,
-        },
-      });
-    } catch (error) {
-      logProgress('ghl.fetch.error', { page, error: String(error?.message || error) }, ctx);
-      throw error;
-    }
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      Version: version,
+    };
+    const data = await requestGhlPage({ url, headers, ctx });
 
     const opportunities = Array.isArray(data?.opportunities) ? data.opportunities : [];
     logProgress('ghl.fetch.page', { page, fetched: opportunities.length }, ctx);
     totalFetched += opportunities.length;
+    if (expectedPages === null) {
+      const metaTotal = Number(data?.meta?.total ?? data?.meta?.count ?? data?.total ?? 0);
+      if (Number.isFinite(metaTotal) && metaTotal > 0) {
+        expectedPages = Math.ceil(metaTotal / limit) || null;
+      }
+    }
 
     for (const opportunity of opportunities) {
+      const opportunityId = opportunity?.id || opportunity?._id;
+      if (opportunityId) {
+        const seenKey = String(opportunityId);
+        if (dedupeIds.has(seenKey)) continue;
+        dedupeIds.add(seenKey);
+      }
       const ids = extractAttributionAdIds(opportunity);
       if (ids.size === 0) continue;
       const stageId = extractPipelineStageId(opportunity);
@@ -175,7 +210,7 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
         const metrics = getMetricsEntry(leadCounts, adId);
         metrics.lead += 1;
         if (!stageId) return;
-        for (const [metric, stages] of Object.entries(PIPELINE_STAGE_GROUPS)) {
+        for (const [metric, stages] of PIPELINE_STAGE_ENTRIES) {
           if (stages.has(stageId)) {
             metrics[metric] += 1;
           }
@@ -183,11 +218,21 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
       });
     }
 
-    if (opportunities.length < limit) break;
+    const processedPages = page;
+    if ((opportunities.length < limit && expectedPages === null) || (expectedPages && processedPages >= expectedPages)) {
+      break;
+    }
     page += 1;
   }
 
-  logProgress('ghl.fetch.complete', { pages: page, totalFetched }, ctx);
+  const totals = Object.values(leadCounts).reduce((acc, metrics) => {
+    Object.entries(metrics).forEach(([key, value]) => {
+      acc[key] = (acc[key] || 0) + value;
+    });
+    return acc;
+  }, {});
+
+  logProgress('ghl.fetch.complete', { pages: page, totalFetched, totals }, ctx);
   return leadCounts;
 }
 
