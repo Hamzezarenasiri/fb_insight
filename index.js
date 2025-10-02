@@ -908,21 +908,41 @@ async function mainTask(params) {
                 endDate: end_date,
                 ctx,
             });
+            const METRIC_KEYS = ['lead', 'appts', 'noresp', 'show', 'noshow', 'sched', 'surgcancel', 'sold', 'nosurgsold'];
+            const parseNumber = (value) => {
+                const numeric = Number(value);
+                return Number.isFinite(numeric) ? numeric : 0;
+            };
             if (leadCounts) {
                 const matched = Object.keys(leadCounts).length;
-                const totalLeads = Object.values(leadCounts).reduce((sum, value) => {
-                    const numeric = Number(value) || 0;
-                    return sum + numeric;
-                }, 0);
-                results = results.map((item) => {
-                    const raw = leadCounts[item.ad_id];
-                    const leadValue = Number.isFinite(raw) ? raw : Number(raw) || 0;
-                    return { ...item, lead: leadValue };
+                const totals = METRIC_KEYS.reduce((acc, key) => {
+                    acc[key] = 0;
+                    return acc;
+                }, {});
+                Object.values(leadCounts).forEach((metrics) => {
+                    METRIC_KEYS.forEach((key) => {
+                        totals[key] += parseNumber(metrics?.[key]);
+                    });
                 });
-                logProgress('ghl.merge.leads', { matched, totalLeads }, ctx);
+                results = results.map((item) => {
+                    const metrics = leadCounts[item.ad_id];
+                    const updated = { ...item };
+                    METRIC_KEYS.forEach((key) => {
+                        const source = metrics ? metrics[key] : item[key];
+                        updated[key] = parseNumber(source);
+                    });
+                    return updated;
+                });
+                logProgress('ghl.merge.metrics', { matched, totals }, ctx);
             } else {
-                results = results.map((item) => ({ ...item, lead: item.lead ?? 0 }));
-                logProgress('ghl.merge.leads', { matched: 0, reason: 'no_counts' }, ctx);
+                results = results.map((item) => {
+                    const updated = { ...item };
+                    METRIC_KEYS.forEach((key) => {
+                        updated[key] = parseNumber(item[key]);
+                    });
+                    return updated;
+                });
+                logProgress('ghl.merge.metrics', { matched: 0, reason: 'no_counts' }, ctx);
             }
         }
         if (["act_70970029", "act_1474898293329309"].includes(FBadAccountId)) {
