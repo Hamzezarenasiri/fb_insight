@@ -132,6 +132,13 @@ The server logs: `API listening on <PORT>`.
 - Ensure `utmAdId` values from Go High Level match Facebook `ad_id` values; otherwise no funnel metrics will be attributed.
 - Date filters are sent in `MM-DD-YYYY` format; you can override the default page size via `GHL_PAGE_LIMIT` if the API allows larger batches.
 
+### Asset deduplication
+
+- When normalised metrics are merged, the worker looks for an existing `assets` document whose `adname` matches the metric `Ad_Name` **and** whose `ad_id` matches the current Facebook `ad_id`.
+- If both match, the metric inherits that asset’s `_id` (`asset_id`) and the asset is updated with the latest creative metadata and links.
+- If the `ad_id` differs (same ad name but a new creative/ad), a brand-new asset document is created so historical assets remain tied to their original Facebook ad.
+- Newly created assets are cached in-memory during the job so subsequent rows referencing the same `Ad_Name`/`ad_id` pair reuse the fresh asset entry.
+
 ### API Docs (OpenAPI)
 
 - Visit `/docs` for Swagger UI (served from `src/docs/openapi.yaml`).

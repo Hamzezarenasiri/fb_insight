@@ -1057,57 +1057,24 @@ newDataArray.forEach((row, idx) => {
 
         
         logProgress('assets.map.start', {}, ctx)
-        const AssetsIds = await aggregateDocumentsRepo("assets", [
-            {
-                $match: {
-                    client_id: clientId,
-                    adname: {$exists: true, $ne: null},
-                    _id: {$exists: true, $ne: null},
-                }
-            },
-            {
-                $project: {
-                    keyValue: {k: "$adname", v: "$_id"}
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    keyValues: {$push: "$keyValue"}
-                }
-            },
-            {
-                $project: {
-                    keyValues: {
-                        $map: {
-                            input: {
-                                $filter: {
-                                    input: "$keyValues",
-                                    as: "kv",
-                                    cond: {
-                                        $and: [
-                                            { $ne: ["$$kv.k", null] },
-                                            { $ne: ["$$kv.k", ""] },
-                                            { $ne: ["$$kv.v", null] },
-                                            { $ne: ["$$kv.v", ""] }
-                                        ]
-                                    }
-                                }
-                            },
-                            as: "kv",
-                            in: { k: "$$kv.k", v: "$$kv.v" }
-                        }
-                    }
-                }
-            },
-            {
-                $replaceRoot: {
-                    newRoot: {$arrayToObject: "$keyValues"}
-                }
+        const existingAssets = await findDocumentsRepo("assets", {
+            client_id: clientId,
+            adname: {$exists: true, $ne: null},
+            _id: {$exists: true, $ne: null},
+        }, { adname: 1, ad_id: 1 });
+        const assetsByAdName = Object.create(null);
+        const assetsById = Object.create(null);
+        existingAssets.forEach((asset) => {
+            const key = asset?.adname;
+            if (!key) return;
+            const list = assetsByAdName[key] || [];
+            list.push(asset);
+            assetsByAdName[key] = list;
+            if (asset?._id) {
+                assetsById[asset._id.toString()] = asset;
             }
-        ]);
-        logProgress('assets.map.done', { keys: (AssetsIds?.[0] && Object.keys(AssetsIds[0]).length) || 0 }, ctx)
-        let asset_ids = AssetsIds[0] || {}
+        });
+        logProgress('assets.map.done', { keys: Object.keys(assetsByAdName).length }, ctx)
         logProgress('assets.upsert.loop.start', { count: validatedRecords.length }, ctx)
         for (const entry of validatedRecords) {
             const creative = entry.other_fields ? entry.other_fields.creative : undefined;
@@ -1126,8 +1093,21 @@ newDataArray.forEach((row, idx) => {
                     objectStorySpec.template_data?.message;
             }
 
-            if (asset_ids?.[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]) {
-                entry.asset_id = asset_ids[entry.Ad_Name] || MetricsIDs?.[entry.Ad_Name]
+            const candidateAssets = assetsByAdName[entry.Ad_Name] || [];
+            let assetMatch = candidateAssets.find((asset) => asset?.ad_id === entry.ad_id);
+
+            if (!assetMatch && MetricsIDs?.[entry.Ad_Name]) {
+                const assetIdFromMetrics = MetricsIDs[entry.Ad_Name];
+                const candidateById = assetIdFromMetrics
+                    ? assetsById[assetIdFromMetrics.toString?.() || assetIdFromMetrics]
+                    : null;
+                if (candidateById && candidateById.ad_id === entry.ad_id) {
+                    assetMatch = candidateById;
+                }
+            }
+
+            if (assetMatch) {
+                entry.asset_id = assetMatch._id
                 const set_dict = {
                     agency_id: agencyId,
                     client_id: clientId,
@@ -1172,7 +1152,15 @@ newDataArray.forEach((row, idx) => {
                         meta_data: entry
                     });
                     entry.asset_id = new_asset.insertedId
-                    asset_ids[entry.Ad_Name] = new_asset.insertedId
+                    const newAssetDoc = {
+                        _id: new_asset.insertedId,
+                        adname: entry.Ad_Name,
+                        ad_id: entry.ad_id,
+                    };
+                    const list = assetsByAdName[entry.Ad_Name] || [];
+                    list.push(newAssetDoc);
+                    assetsByAdName[entry.Ad_Name] = list;
+                    assetsById[new_asset.insertedId.toString()] = newAssetDoc;
                 } catch (error) {
                     console.error("Error inserting new asset:", error);
                 }
