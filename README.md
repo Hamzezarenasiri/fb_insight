@@ -130,17 +130,6 @@ The server logs: `API listening on <PORT>`.
 - Ensure `utmAdId` values from Go High Level match Facebook `ad_id` values; otherwise no funnel metrics will be attributed.
 - Date filters are sent in `MM-DD-YYYY` format; you can override the default page size via `GHL_PAGE_LIMIT` if the API allows larger batches.
 
-#### HIPAA enforcement (automatic per client)
-
-- Mark a client as HIPAA-covered by setting `clients.compliance.hipaa = true` (preferred) or `clients.hipaa = true`.
-- When HIPAA is true for the `clientId` in a `/run-task` request:
-  - The request must include `Authorization: <STATIC_TOKEN>` (exact match).
-  - GHL requests are enforced to use HTTPS and are minimized in-memory to only `attributions.utmAdId` and `pipelineStageId`. No opportunity payloads are persisted or logged.
-- Optional global flags:
-  - `HIPAA_MODE=true` (enforces strong auth for all clients)
-  - `GHL_ENABLED=true|false` (master switch)
-  - `GHL_ALLOWED_ACCOUNTS=act_...,act_...` (only these ad accounts may call GHL when set)
-
 ### Asset deduplication
 
 - When normalised metrics are merged, the worker looks for an existing `assets` document whose `adname` matches the metric `Ad_Name` **and** whose `ad_id` matches the current Facebook `ad_id`.

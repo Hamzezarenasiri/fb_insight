@@ -1,6 +1,5 @@
 import { sendHttpRequest } from '../../utils/http.js';
 import { logProgress } from '../../utils/logger.js';
-import { config } from '../../config/env.js';
 
 const DEFAULT_BASE_URL = 'https://services.leadconnectorhq.com';
 const DEFAULT_VERSION = '2021-07-28';
@@ -161,24 +160,6 @@ function extractAttributionAdIds(opportunity) {
 }
 
 export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ctx = {} }) {
-  if (!config.ghl.enabled) {
-    logProgress('ghl.disabled', { accountId }, ctx);
-    return null;
-  }
-  // Enforce HTTPS base URL in HIPAA mode
-  if (config.hipaa.mode) {
-    const base = process.env.GHL_API_BASE || DEFAULT_BASE_URL;
-    if (!String(base).startsWith('https://')) {
-      logProgress('ghl.block.insecure_base', {}, ctx);
-      throw new Error('GHL_API_BASE must be https in HIPAA mode');
-    }
-    // Allowlist enforcement when provided
-    const allowed = config.ghl.allowedAccounts;
-    if (allowed.length > 0 && !allowed.includes(accountId)) {
-      logProgress('ghl.block.account', { accountId }, ctx);
-      return null;
-    }
-  }
   const credentials = resolveGhlCredentials(accountId);
   if (!credentials) {
     logProgress('ghl.missing.credentials', { accountId }, ctx);
@@ -214,14 +195,8 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
       Version: version,
     };
     const data = await requestGhlPage({ url, headers, ctx });
-    // Minimize data: retain only required fields before any further processing
-    const rawOps = Array.isArray(data?.opportunities) ? data.opportunities : [];
-    const opportunities = rawOps.map(op => ({
-      // retain only minimal fields used below
-      attributions: Array.isArray(op?.attributions) ? op.attributions : [],
-      pipelineStageId: op?.pipelineStageId ?? op?.pipeline_stage_id ?? op?.stageId ?? op?.stage_id ?? null,
-      id: op?.id ?? op?._id ?? undefined,
-    }));
+
+    const opportunities = Array.isArray(data?.opportunities) ? data.opportunities : [];
     logProgress('ghl.fetch.page', { page, fetched: opportunities.length }, ctx);
     totalFetched += opportunities.length;
     if (expectedPages === null) {
