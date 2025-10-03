@@ -4,11 +4,10 @@ import { findOneDocument } from '../repositories/mongo/common.js';
 import { ObjectId } from 'mongodb';
 
 export async function runTaskController(req, res) {
-  const auth = req.get('authorization') || '';
-  if (!auth) return res.status(401).json({ error: 'missing Authorization' });
+  const params = req.validatedBody || req.body || {};
+  const authHeader = req.get('authorization') || '';
   // Enforce strong auth automatically for HIPAA clients
   try {
-    const params = req.validatedBody || req.body || {};
     const clientId = params?.clientId;
     let hipaaClient = false;
     if (clientId) {
@@ -18,10 +17,26 @@ export async function runTaskController(req, res) {
       hipaaClient = Boolean(client?.compliance?.hipaa || client?.hipaa);
     }
     if (config.hipaa.mode || hipaaClient) {
-      const token = (req.get('authorization') || '').trim();
-      if (!config.staticToken || token !== config.staticToken) {
+      // Accept token from Authorization (exact or Bearer), X-API-Key, or body (staticToken/apiKey/token)
+      const provided = new Set();
+      const rawAuth = (authHeader || '').trim();
+      if (rawAuth) {
+        provided.add(rawAuth);
+        if (rawAuth.toLowerCase().startsWith('bearer ')) {
+          provided.add(rawAuth.slice(7).trim());
+        }
+      }
+      const xApiKey = (req.get('x-api-key') || '').trim();
+      if (xApiKey) provided.add(xApiKey);
+      const bodyToken = (params.staticToken || params.apiKey || params.token || '').toString().trim();
+      if (bodyToken) provided.add(bodyToken);
+
+      if (!config.staticToken || ![...provided].includes(config.staticToken)) {
         return res.status(401).json({ error: 'invalid token' });
       }
+    } else {
+      // Non-HIPAA: keep lightweight check for presence of Authorization header to avoid open endpoint
+      if (!authHeader) return res.status(401).json({ error: 'missing Authorization' });
     }
   } catch {}
 
