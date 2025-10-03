@@ -36,7 +36,9 @@ paths:
         - fb.ads.edge.page (and fb.ads.edge.skip on failure)
         - fb.synthetic.zero (when a zero-row is created)
         
-        Authorization note: current implementation only checks that an `Authorization` header is present (value is not validated/authenticated).
+        Authorization note:
+        - If the target `clientId` is marked HIPAA-covered in MongoDB (`clients.compliance.hipaa === true` or `clients.hipaa === true`), then `Authorization` must exactly equal `STATIC_TOKEN`.
+        - Otherwise, the implementation only checks that an `Authorization` header is present.
         
         Timezone note: Date ranges are evaluated in the ad account's timezone.
       requestBody:

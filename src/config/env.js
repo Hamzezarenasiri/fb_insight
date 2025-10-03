@@ -6,6 +6,9 @@ export const config = {
   mongoUri: process.env.mongodb_uri,
   sentryDsn: process.env.SENTRY_DSN,
   staticToken: process.env.STATIC_TOKEN,
+  hipaa: {
+    mode: String(process.env.HIPAA_MODE || '').toLowerCase() === 'true',
+  },
   aws: {
     region: process.env.AWS_REGION || 'us-east-1',
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -17,10 +20,14 @@ export const config = {
     apiBase: process.env.FLUX_API_BASE || 'https://flux-api.afarin.top',
     apiKey: process.env.FLUX_STATIC_API_KEY,
   },
-  openaiKey: process.env.OPENAI_API_KEY,
   ghl: {
     apiBase: process.env.GHL_API_BASE || 'https://services.leadconnectorhq.com',
     apiVersion: process.env.GHL_API_VERSION || '2021-07-28',
+    enabled: String((process.env.GHL_ENABLED ?? 'true')).toLowerCase() === 'true',
+    allowedAccounts: String(process.env.GHL_ALLOWED_ACCOUNTS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
   },
 };
 

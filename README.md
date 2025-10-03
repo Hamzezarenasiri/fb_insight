@@ -8,7 +8,7 @@ An Express.js API to import and process Facebook Ads data. It fetches ad-level i
 - **Storage**: MongoDB collections (`fb_insights`, `metrics`, `reports_data`, `assets`, etc.)
 - **Optional Athena**: Query and merge aggregates for selected accounts
 - **Go High Level merge**: Pull CRM opportunities and hydrate `lead` counts for allowlisted ad accounts (via `utmAdId` ↔ `ad_id`)
-- **Enrichment**: Preview scraping, optional OpenAI, external tagging API
+- **Enrichment**: Preview scraping and internal tagging (no OpenAI)
 - **Validation**: Zod request schemas per endpoint
 - **Jobs**: BullMQ queues + workers replacing `setTimeout`
 - **Observability**: Structured JSON logs for every stage (fetch, mapping, metrics, report, enrichment, tagging)
@@ -32,7 +32,7 @@ src/
   services/
     facebook/           # clients for insights/ad library, fields
     reporting/          # mapping, metrics, process, schema.defaults
-    enrichment/         # preview/openai/tagging/product
+    enrichment/         # preview/tagging/product
     athena/             # runAthenaQuery
     status/             # saveFacebookImportStatus
   repositories/
@@ -66,7 +66,6 @@ Create `.env` in the project root.
 - **Auth/External**
   - `STATIC_TOKEN` (optional): Static token for `/run-ad-library`
   - `FLUX_STATIC_API_KEY` (optional): External tagging API key
-  - `OPENAI_API_KEY` (optional): OpenAI API key
 - **AWS Athena (optional)**
   - `AWS_REGION` (default `us-east-1`)
   - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
@@ -90,7 +89,6 @@ PORT=3000
 SENTRY_DSN=https://xxx@sentry.io/yyy
 STATIC_TOKEN=replace-me
 FLUX_STATIC_API_KEY=your-flux-api-key
-OPENAI_API_KEY=sk-...
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
@@ -131,6 +129,17 @@ The server logs: `API listening on <PORT>`.
   Each downstream bucket is cumulative (e.g., a `sold` contact is also counted in `lead`, `appts`, and `show`).
 - Ensure `utmAdId` values from Go High Level match Facebook `ad_id` values; otherwise no funnel metrics will be attributed.
 - Date filters are sent in `MM-DD-YYYY` format; you can override the default page size via `GHL_PAGE_LIMIT` if the API allows larger batches.
+
+#### HIPAA enforcement (automatic per client)
+
+- Mark a client as HIPAA-covered by setting `clients.compliance.hipaa = true` (preferred) or `clients.hipaa = true`.
+- When HIPAA is true for the `clientId` in a `/run-task` request:
+  - The request must include `Authorization: <STATIC_TOKEN>` (exact match).
+  - GHL requests are enforced to use HTTPS and are minimized in-memory to only `attributions.utmAdId` and `pipelineStageId`. No opportunity payloads are persisted or logged.
+- Optional global flags:
+  - `HIPAA_MODE=true` (enforces strong auth for all clients)
+  - `GHL_ENABLED=true|false` (master switch)
+  - `GHL_ALLOWED_ACCOUNTS=act_...,act_...` (only these ad accounts may call GHL when set)
 
 ### Asset deduplication
 
