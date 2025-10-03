@@ -16,15 +16,11 @@ import { processData as processDataSvc, NormalizeNumberObjects as NormalizeNumbe
 import { convertToObject as convertToObjectSvc, findNonEmptyKeys as findNonEmptyKeysSvc } from './src/services/reporting/transform.service.js';
 import { getFbAdPreview as getFbAdPreviewSvc, getPropsOfSource as getPropsOfSourceSvc, removeUTM as removeUTMSvc } from './src/services/enrichment/preview.service.js';
 import { updateMessagesAndLinks as updateMessagesAndLinksSvc, generateProduct as generateProductSvc } from './src/services/enrichment/product.service.js';
-import { tagging as taggingSvc } from './src/services/enrichment/tagging.service.js';
 import { logProgress, startTimer, elapsedMs } from './src/utils/logger.js';
 
 // Sentry is initialized in src/server.js
 dotenv.config();
 const BASE_URL = "https://graph.facebook.com/v22.0";
-const fluxAPIBaseUrl = "https://flux-api.afarin.top";
-const fluxAPIkey = process.env.FLUX_STATIC_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 // Facebook fields now provided by FB_FIELDS from services
 /* const FIELDS = [
     // "ad_quality_ranking",
@@ -1239,17 +1235,10 @@ newDataArray.forEach((row, idx) => {
         logProgress('enrichment.products.start', {}, ctx)
         await generateProductSvc(uuid, clientId, agencyId)
         logProgress('enrichment.products.done', {}, ctx)
-        if (ai) {
-            logProgress('tagging.start', { ai }, ctx)
-            const response = await taggingSvc(import_list_inserted.insertedId, clientId, ai)
-            logProgress('tagging.done', {}, ctx)
-        } else {
-            await saveFacebookImportStatusSvc(uuid, {
-                status: "success",
-                percentage: 100
-            })
-            logProgress('tagging.skipped', {}, ctx)
-        }
+        await saveFacebookImportStatusSvc(uuid, {
+            status: "success",
+            percentage: 100
+        })
     } catch (error) {
         console.error("An error occurred:", error);
         await saveFacebookImportStatusSvc(uuid, {
