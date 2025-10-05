@@ -910,18 +910,25 @@ async function mainTask(params) {
                 return Number.isFinite(numeric) ? numeric : 0;
             };
             if (leadCounts) {
-                const matched = Object.keys(leadCounts).length;
+                const { byAdId = {}, byUtmContent = {} } = leadCounts;
+                const matchedDirect = Object.keys(byAdId).length;
+                const matchedFallback = Object.keys(byUtmContent).length;
                 const totals = METRIC_KEYS.reduce((acc, key) => {
                     acc[key] = 0;
                     return acc;
                 }, {});
-                Object.values(leadCounts).forEach((metrics) => {
+                Object.values({ ...byAdId, ...byUtmContent }).forEach((metrics) => {
                     METRIC_KEYS.forEach((key) => {
                         totals[key] += parseNumber(metrics?.[key]);
                     });
                 });
                 results = results.map((item) => {
-                    const metrics = leadCounts[item.ad_id];
+                    const metrics = byAdId[item.ad_id] || (() => {
+                        const key = item?.Ad_Name ? String(item.Ad_Name).trim() : '';
+                        if (!key) return null;
+                        const fallbackMetrics = byUtmContent[key];
+                        return fallbackMetrics || null;
+                    })();
                     const updated = { ...item };
                     METRIC_KEYS.forEach((key) => {
                         const source = metrics ? metrics[key] : item[key];
@@ -929,7 +936,7 @@ async function mainTask(params) {
                     });
                     return updated;
                 });
-                logProgress('ghl.merge.metrics', { matched, totals }, ctx);
+                logProgress('ghl.merge.metrics', { matchedDirect, matchedFallback, totals }, ctx);
             } else {
                 results = results.map((item) => {
                     const updated = { ...item };

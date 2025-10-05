@@ -27,6 +27,7 @@ paths:
         Additional merges:
         - For allowlisted accounts (e.g. `act_435957451701926`), the worker fetches Go High Level opportunities for the same date range, retries on 429/5xx, de-duplicates opportunity IDs, and maps `utmAdId` values to Facebook `ad_id` fields.
           The following funnel metrics are populated per ad: `lead`, `appts`, `noresp`, `show`, `noshow`, `sched`, `surgcancel`, `sold`, `nosurgsold` (downstream stages roll up into upstream counts).
+        - When `utmAdId` is absent, the worker falls back to matching `utmContent` values against Facebook `Ad_Name` to attribute funnel metrics.
         - Assets are reused only when both `Ad_Name` and `ad_id` match an existing document; otherwise a new asset is created so creatives tied to different Facebook `ad_id`s remain distinct.
 
         Diagnostics (structured logs):

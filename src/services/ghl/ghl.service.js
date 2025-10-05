@@ -56,6 +56,7 @@ const PIPELINE_STAGE_GROUPS = {
   ].map((id) => id.toLowerCase())),
 };
 const PIPELINE_STAGE_ENTRIES = Object.entries(PIPELINE_STAGE_GROUPS);
+const METRIC_KEYS = ['lead', 'appts', 'noresp', 'show', 'noshow', 'sched', 'surgcancel', 'sold', 'nosurgsold'];
 
 function normalizeAccountKey(accountId = '') {
   return accountId.toUpperCase().replace(/[^A-Z0-9]/g, '_');
@@ -96,24 +97,17 @@ function extractPipelineStageId(opportunity) {
 }
 
 function createEmptyMetrics() {
-  return {
-    lead: 0,
-    appts: 0,
-    noresp: 0,
-    show: 0,
-    noshow: 0,
-    sched: 0,
-    surgcancel: 0,
-    sold: 0,
-    nosurgsold: 0,
-  };
+  return METRIC_KEYS.reduce((acc, key) => {
+    acc[key] = 0;
+    return acc;
+  }, {});
 }
 
-function getMetricsEntry(map, adId) {
-  if (!map[adId]) {
-    map[adId] = createEmptyMetrics();
+function getMetricsEntry(map, key) {
+  if (!map[key]) {
+    map[key] = createEmptyMetrics();
   }
-  return map[adId];
+  return map[key];
 }
 
 function delay(ms) {
@@ -149,14 +143,47 @@ export function resolveGhlCredentials(accountId) {
   return { token, locationId, baseUrl, version, limit };
 }
 
-function extractAttributionAdIds(opportunity) {
+function collectFallbackUtmContents(opportunity) {
+  const candidates = [
+    opportunity?.utmContent,
+    opportunity?.utm_content,
+    opportunity?.utmcontent,
+    opportunity?.source?.utmContent,
+    opportunity?.source?.utm_content,
+    opportunity?.source?.utmcontent,
+  ];
+  const contents = new Set();
+  for (const value of candidates) {
+    const key = normalizeNameKey(value);
+    if (key) contents.add(key);
+  }
+  return contents;
+}
+
+function normalizeNameKey(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function extractAttributionIdentifiers(opportunity) {
   const attributions = Array.isArray(opportunity?.attributions) ? opportunity.attributions : [];
-  const ids = new Set();
+  const adIds = new Set();
+  const utmContents = new Set();
   for (const attribution of attributions) {
     const utmAdId = attribution?.utmAdId || attribution?.utm_ad_id || attribution?.ad_id || attribution?.utm_adid;
-    if (utmAdId) ids.add(String(utmAdId));
+    if (utmAdId) adIds.add(String(utmAdId));
+    const utmContent =
+      attribution?.utmContent ||
+      attribution?.utm_content ||
+      attribution?.utmcontent ||
+      attribution?.utm_content_name;
+    const contentKey = normalizeNameKey(utmContent);
+    if (contentKey) utmContents.add(contentKey);
   }
-  return ids;
+  if (adIds.size === 0 && utmContents.size === 0) {
+    collectFallbackUtmContents(opportunity).forEach((value) => utmContents.add(value));
+  }
+  return { adIds, utmContents };
 }
 
 export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ctx = {} }) {
@@ -179,7 +206,8 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
 
   let page = 1;
   let totalFetched = 0;
-  const leadCounts = Object.create(null);
+  const leadCountsByAdId = Object.create(null);
+  const leadCountsByUtmContent = Object.create(null);
 
   logProgress('ghl.fetch.start', { accountId, startDate, endDate }, ctx);
 
@@ -213,19 +241,33 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
         if (dedupeIds.has(seenKey)) continue;
         dedupeIds.add(seenKey);
       }
-      const ids = extractAttributionAdIds(opportunity);
-      if (ids.size === 0) continue;
+      const { adIds, utmContents } = extractAttributionIdentifiers(opportunity);
+      const hasAdIds = adIds.size > 0;
+      if (!hasAdIds && utmContents.size === 0) continue;
       const stageId = extractPipelineStageId(opportunity);
-      ids.forEach((adId) => {
-        const metrics = getMetricsEntry(leadCounts, adId);
-        metrics.lead += 1;
-        if (!stageId) return;
-        for (const [metric, stages] of PIPELINE_STAGE_ENTRIES) {
-          if (stages.has(stageId)) {
-            metrics[metric] += 1;
+      if (hasAdIds) {
+        adIds.forEach((adId) => {
+          const metrics = getMetricsEntry(leadCountsByAdId, adId);
+          metrics.lead += 1;
+          if (!stageId) return;
+          for (const [metric, stages] of PIPELINE_STAGE_ENTRIES) {
+            if (stages.has(stageId)) {
+              metrics[metric] += 1;
+            }
           }
-        }
-      });
+        });
+      } else {
+        utmContents.forEach((contentKey) => {
+          const metrics = getMetricsEntry(leadCountsByUtmContent, contentKey);
+          metrics.lead += 1;
+          if (!stageId) return;
+          for (const [metric, stages] of PIPELINE_STAGE_ENTRIES) {
+            if (stages.has(stageId)) {
+              metrics[metric] += 1;
+            }
+          }
+        });
+      }
     }
 
     const processedPages = page;
@@ -235,14 +277,24 @@ export async function fetchLeadCountsFromGhl({ accountId, startDate, endDate, ct
     page += 1;
   }
 
-  const totals = Object.values(leadCounts).reduce((acc, metrics) => {
-    Object.entries(metrics).forEach(([key, value]) => {
-      acc[key] = (acc[key] || 0) + value;
-    });
+  const totals = METRIC_KEYS.reduce((acc, key) => {
+    acc[key] = 0;
     return acc;
   }, {});
+  const aggregateMetrics = [...Object.values(leadCountsByAdId), ...Object.values(leadCountsByUtmContent)];
+  aggregateMetrics.forEach((metrics) => {
+    METRIC_KEYS.forEach((key) => {
+      totals[key] += metrics?.[key] || 0;
+    });
+  });
 
-  logProgress('ghl.fetch.complete', { pages: page, totalFetched, totals }, ctx);
-  return leadCounts;
+  logProgress('ghl.fetch.complete', {
+    pages: page,
+    totalFetched,
+    matchedAdIds: Object.keys(leadCountsByAdId).length,
+    fallbackKeys: Object.keys(leadCountsByUtmContent).length,
+    totals,
+  }, ctx);
+  return { byAdId: leadCountsByAdId, byUtmContent: leadCountsByUtmContent };
 }
 

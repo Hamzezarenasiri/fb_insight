@@ -116,6 +116,7 @@ The server logs: `API listening on <PORT>`.
 
 - A Go High Level pull runs automatically for `act_435957451701926` after Facebook insights import. Configure credentials through either account-specific (`GHL_TOKEN_ACT_...`, `GHL_LOCATION_ACT_...`) or fallback (`GHL_API_TOKEN`, `GHL_LOCATION_ID`) variables.
 - The worker paginates `/opportunities/search` with the requested date range, retries on 429/5xx, de-duplicates opportunity IDs, and maps opportunities to ads via `utmAdId` (case-insensitive).
+- If an opportunity lacks `utmAdId`, the worker falls back to `utmContent` (or equivalent keys) and matches it against the Facebook `Ad_Name` to attribute funnel metrics.
 - Funnel metrics are sourced from the pipeline stage on each opportunity. For every matching ad we populate:
   - `lead`
   - `appts`
