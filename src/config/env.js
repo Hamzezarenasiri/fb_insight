@@ -14,7 +14,7 @@ export const config = {
     athenaOutput: process.env.ATHENA_OUTPUT_LOCATION,
   },
   flux: {
-    apiBase: process.env.FLUX_API_BASE || 'https://flux-api.afarin.top',
+    apiBase: process.env.FLUX_API_BASE || 'https://flux-api.fluxcap.ai',
     apiKey: process.env.FLUX_STATIC_API_KEY,
   },
   ghl: {
